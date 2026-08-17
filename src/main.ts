@@ -1,0 +1,47 @@
+import { GAME_HEIGHT, GAME_WIDTH } from './core/config';
+import { GameManager } from './gameManager';
+import { Renderer } from './gfx/renderer';
+
+/**
+ * Entry point: sizes the canvas to the device, boots the game, and keeps the
+ * viewport in sync with rotations and browser chrome changes.
+ */
+function main(): void {
+  const canvas = document.getElementById('game-canvas') as HTMLCanvasElement | null;
+  if (!canvas) throw new Error('canvas #game-canvas missing');
+
+  const renderer = new Renderer(canvas);
+  const game = new GameManager(renderer);
+
+  const resize = (): void => {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    renderer.resize(vw, vh, dpr);
+    // Portrait phones get a rotate hint: the game is designed for landscape.
+    document.body.classList.toggle('portrait-warn', vh > vw && vw < 640);
+    game.handleResize();
+  };
+
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 120));
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+  resize();
+
+  void game.boot().catch((err) => {
+    console.error(err);
+    const box = document.getElementById('boot-error');
+    if (box) {
+      box.style.display = 'block';
+      box.textContent = `Erreur de démarrage:\n${String(err && (err as Error).stack ? (err as Error).stack : err)}`;
+    }
+  });
+
+  // Keeps the address bar from stealing taps on iOS.
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+  document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+
+  console.info(`[quest] internal resolution ${GAME_WIDTH}x${GAME_HEIGHT}`);
+}
+
+main();

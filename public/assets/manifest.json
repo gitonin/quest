@@ -1,0 +1,4 @@
+{
+  "_comment": "Optional sprite-sheet overrides. Leave `sheets` empty to use the built-in procedural art. See docs/ASSETS.md for the format.",
+  "sheets": []
+}
