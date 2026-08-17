@@ -68,7 +68,15 @@ const OVERRIDABLE = [
   'devourer',
 ] as const;
 
-export async function loadAssets(): Promise<Assets> {
+/**
+ * Builds every bank synchronously.
+ *
+ * Nothing here waits on the network: the game must be able to start even if a
+ * request hangs or is blocked, which is exactly what a black screen on a phone
+ * looks like. Optional PNG overrides are applied afterwards by
+ * `applySheetOverrides`, once the game is already running.
+ */
+export function buildAssets(): Assets {
   const assets: Assets = {
     knight: buildKnightBank(),
     princess: buildPrincessBank(),
@@ -87,21 +95,30 @@ export async function loadAssets(): Promise<Assets> {
     fx: buildFx(),
     overridden: [],
   };
-
-  try {
-    const manifest = await fetchManifest();
-    if (manifest) await applyManifest(assets, manifest);
-  } catch (err) {
-    console.warn('[assets] sheet override skipped:', err);
-  }
-
   return assets;
 }
 
+/** Swaps in real sprite sheets if `assets/manifest.json` provides any. */
+export async function applySheetOverrides(assets: Assets): Promise<void> {
+  try {
+    const manifest = await fetchManifest();
+    if (manifest && manifest.sheets.length > 0) await applyManifest(assets, manifest);
+  } catch (err) {
+    console.warn('[assets] sheet override skipped:', err);
+  }
+}
+
 async function fetchManifest(): Promise<SheetManifest | null> {
-  const res = await fetch('assets/manifest.json', { cache: 'no-cache' });
-  if (!res.ok) return null;
-  return (await res.json()) as SheetManifest;
+  // Bounded: a stalled request must never keep the override step pending.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4000);
+  try {
+    const res = await fetch('assets/manifest.json', { cache: 'no-cache', signal: controller.signal });
+    if (!res.ok) return null;
+    return (await res.json()) as SheetManifest;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function applyManifest(assets: Assets, manifest: SheetManifest): Promise<void> {

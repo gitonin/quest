@@ -17,9 +17,24 @@ export class FrameStrip {
     this.canvas.width = this.frameW * this.count;
     this.canvas.height = this.frameH;
     const ctx = this.canvas.getContext('2d');
-    if (!ctx) throw new Error('2D context unavailable');
+    if (!ctx) throw new Error('2D context unavailable (FrameStrip)');
     ctx.imageSmoothingEnabled = false;
-    frames.forEach((f, i) => ctx.drawImage(f.toCanvas(), i * this.frameW, 0));
+
+    // Composed as a single ImageData: allocating one intermediate canvas per
+    // frame is what pushes mobile Safari over its canvas memory budget, and a
+    // browser that refuses another canvas simply renders nothing.
+    const strip = ctx.createImageData(this.canvas.width, this.canvas.height);
+    for (let i = 0; i < frames.length; i++) {
+      const frame = frames[i];
+      const copyW = Math.min(frame.width, this.frameW);
+      const copyH = Math.min(frame.height, this.frameH);
+      for (let y = 0; y < copyH; y++) {
+        const src = y * frame.width * 4;
+        const dst = (y * this.canvas.width + i * this.frameW) * 4;
+        strip.data.set(frame.data.subarray(src, src + copyW * 4), dst);
+      }
+    }
+    ctx.putImageData(strip, 0, 0);
   }
 
   draw(ctx: Ctx2D, index: number, x: number, y: number, flipX = false): void {

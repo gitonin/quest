@@ -11,7 +11,7 @@ import { Chest, Interactive } from './entities/interactive';
 import type { Pickup } from './entities/pickup';
 import { Player } from './entities/player';
 import { Background } from './gfx/background';
-import { loadAssets, type Assets } from './gfx/assets';
+import { applySheetOverrides, buildAssets, type Assets } from './gfx/assets';
 import { Lighting } from './gfx/lighting';
 import { Particles } from './gfx/particles';
 import type { Renderer } from './gfx/renderer';
@@ -100,18 +100,26 @@ export class GameManager implements LevelHooks {
     };
   }
 
-  async boot(): Promise<void> {
-    this.assets = await loadAssets();
+  boot(onProgress?: (step: string) => void): void {
+    onProgress?.('génération des sprites');
+    this.assets = buildAssets();
     this.world.assets = this.assets;
+    onProgress?.('réglages');
     this.settings = this.saves.loadSettings();
     this.applySettings();
-    if (this.assets.overridden.length > 0) {
-      console.info('[assets] sheets loaded from disk:', this.assets.overridden.join(', '));
-    }
     this.installDebugApi();
     this.enterTitle();
     this.lastFrame = performance.now();
     requestAnimationFrame(this.frame);
+    onProgress?.('prêt');
+
+    // Optional PNG sheets are picked up in the background: the game is already
+    // playable while this resolves (or fails).
+    void applySheetOverrides(this.assets).then(() => {
+      if (this.assets.overridden.length > 0) {
+        console.info('[assets] sheets loaded from disk:', this.assets.overridden.join(', '));
+      }
+    });
   }
 
   /* ------------------------------------------------------------ main loop */

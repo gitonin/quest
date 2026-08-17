@@ -51,6 +51,30 @@ export class Renderer {
     this.display.imageSmoothingEnabled = false;
   }
 
+  /**
+   * Paints a message straight onto the visible canvas, before any game asset
+   * exists. It is the difference between "the canvas never gets drawn to" and
+   * "the game loop died": on someone else's phone, both look like black.
+   */
+  splash(text: string): void {
+    const ctx = this.display;
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+    ctx.fillStyle = '#05050c';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#c9a227';
+    ctx.strokeStyle = '#c9a227';
+    ctx.lineWidth = Math.max(1, this.scale);
+    ctx.strokeRect(ctx.lineWidth, ctx.lineWidth, w - ctx.lineWidth * 2, h - ctx.lineWidth * 2);
+    const size = Math.max(10, Math.round(h / 18));
+    ctx.font = `${size}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, w / 2, h / 2);
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+  }
+
   clear(color = '#05050c'): void {
     this.ctx.fillStyle = color;
     this.ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
