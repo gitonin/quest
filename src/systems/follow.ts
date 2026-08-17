@@ -40,6 +40,31 @@ export class Trail {
     if (this.points.length > FOLLOW.maxTrailPoints) this.points.shift();
   }
 
+  /**
+   * Travelled distance of the trail sample closest to a point.
+   *
+   * Companions use this to know *where on the path they are*, so they can walk
+   * the trail itself instead of cutting straight towards the leader through
+   * whatever trees happen to be in between.
+   */
+  nearestProgress(x: number, y: number): { progress: number; distance: number } {
+    let bestProgress = this.travelled;
+    let bestDist = Infinity;
+    for (const point of this.points) {
+      const d = Math.hypot(point.x - x, point.y - y);
+      if (d < bestDist) {
+        bestDist = d;
+        bestProgress = point.travelled;
+      }
+    }
+    return { progress: bestProgress, distance: bestDist };
+  }
+
+  /** Absolute position at a given travelled distance along the trail. */
+  pointAtProgress(progress: number): { x: number; y: number } {
+    return this.pointBehind(this.travelled - progress);
+  }
+
   /** Position `distance` pixels behind the head, interpolated between samples. */
   pointBehind(distance: number): { x: number; y: number } {
     if (this.points.length === 0) return { x: 0, y: 0 };

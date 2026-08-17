@@ -18,19 +18,46 @@ export class DialogueBox {
   private index = 0;
   private revealed = 0;
   private onDone: (() => void) | null = null;
+  /** Dialogues asked for while another one is playing wait their turn here. */
+  private queue: Array<{ lines: DialogueLine[]; onDone?: () => void }> = [];
   active = false;
 
   start(id: DialogueId, onDone?: () => void): void {
     this.play(DIALOGUES[id], onDone);
   }
 
+  /**
+   * Starts a dialogue, or queues it behind the running one. Queuing matters:
+   * a trigger firing mid-conversation must never silently drop the pending
+   * callback of the conversation already on screen (that callback is what hands
+   * out quest items).
+   */
   play(lines: DialogueLine[], onDone?: () => void): void {
+    if (lines.length === 0) {
+      onDone?.();
+      return;
+    }
+    if (this.active) {
+      this.queue.push({ lines, onDone });
+      return;
+    }
+    this.begin(lines, onDone);
+  }
+
+  private begin(lines: DialogueLine[], onDone?: () => void): void {
     this.lines = lines;
     this.index = 0;
     this.revealed = 0;
-    this.active = lines.length > 0;
+    this.active = true;
     this.onDone = onDone ?? null;
-    if (!this.active) this.onDone?.();
+  }
+
+  /** Drops everything, used when a level unloads. */
+  clear(): void {
+    this.queue.length = 0;
+    this.lines = [];
+    this.active = false;
+    this.onDone = null;
   }
 
   /** Advance: first completes the reveal, then moves to the next line. */
@@ -43,11 +70,16 @@ export class DialogueBox {
     }
     this.index++;
     this.revealed = 0;
-    if (this.index >= this.lines.length) {
-      this.active = false;
-      const done = this.onDone;
-      this.onDone = null;
-      done?.();
+    if (this.index < this.lines.length) return;
+
+    this.active = false;
+    const done = this.onDone;
+    this.onDone = null;
+    done?.();
+    // The callback may itself have started a dialogue; if not, drain the queue.
+    if (!this.active) {
+      const next = this.queue.shift();
+      if (next) this.begin(next.lines, next.onDone);
     }
   }
 

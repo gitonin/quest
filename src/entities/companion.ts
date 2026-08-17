@@ -10,7 +10,7 @@ import { Character } from './character';
 import type { Entity, EntityKind } from './entity';
 import type { Player } from './player';
 
-export type CompanionState = 'follow' | 'idle' | 'combat' | 'lowHealth' | 'boss';
+export type CompanionState = 'follow' | 'idle' | 'combat' | 'lowHealth' | 'boss' | 'down';
 
 const LOW_HEALTH_RATIO = 0.35;
 
@@ -39,6 +39,8 @@ export class Companion extends Character {
   private strafeDir = 1;
   private baseSpells: string[];
   private pendingCast: { id: string; time: number; tx: number; ty: number; ally: Character | null } | null = null;
+  /** Seconds spent far behind the caravan, used as an anti-soft-lock timer. */
+  lostTimer = 0;
 
   constructor(charId: CharacterId, bank: AnimBank, player: Player, trail: Trail, slot: number, level = 1) {
     super(bank, true);
@@ -88,11 +90,22 @@ export class Companion extends Character {
     return FOLLOW.spacing * this.slot;
   }
 
+  /**
+   * True when the companion has fallen well behind the caravan. Casting roots
+   * the caster for the duration of the animation, so a lagging companion skips
+   * offensive spells until it has caught up - otherwise it stops every second
+   * to shoot and never rejoins the group.
+   */
+  private get isLagging(): boolean {
+    return dist(this.x, this.y, this.player.x, this.player.y) > this.followDistance * 1.8;
+  }
+
   update(dt: number): void {
     this.updateCommon(dt);
     // Companions are never gone for good: they get back up near the player.
     if (this.isDead) {
-      if (this.deathTimer > 6) this.revive();
+      this.aiState = 'down';
+      if (this.deathTimer > 4) this.revive();
       return;
     }
 
@@ -124,6 +137,9 @@ export class Companion extends Character {
 
   private revive(): void {
     this.state = 'idle';
+    this.aiState = 'follow';
+    this.vx = 0;
+    this.vy = 0;
     this.hp = Math.round(this.maxHp * 0.5);
     this.deathTimer = 0;
     const spot = this.trail.pointBehind(this.followDistance);
@@ -171,10 +187,11 @@ export class Companion extends Character {
   /* ------------------------------------------------------------ behaviours */
 
   private updateFollow(dt: number): void {
-    const goal = this.trail.pointBehind(this.followDistance);
+    const goal = this.followGoal();
     const d = dist(this.x, this.y, goal.x, goal.y);
+    const behind = dist(this.x, this.y, this.player.x, this.player.y);
 
-    if (d > FOLLOW.teleportDistance) {
+    if (behind > FOLLOW.teleportDistance) {
       // Last resort: the companion got locked out of the room entirely.
       this.x = goal.x;
       this.y = goal.y;
@@ -183,6 +200,7 @@ export class Companion extends Character {
     }
 
     if (d < 4) {
+      this.lostTimer = 0;
       this.brake(dt);
       this.playState('idle');
       // Face the same way as the leader while resting.
@@ -190,9 +208,38 @@ export class Companion extends Character {
       return;
     }
 
-    const urgency = d > FOLLOW.catchUpDistance ? 1.35 : d > this.followDistance * 1.6 ? 1.12 : 1;
+    // Lagging companions get a speed bonus that scales with how far behind the
+    // caravan they are, so a corner or a fight never loses them for good.
+    const urgency = behind > this.followDistance * 3 ? 1.9 : behind > this.followDistance * 1.6 ? 1.35 : 1;
     this.steerTowards(goal.x, goal.y, this.speed * urgency, dt);
     this.playState('walk');
+
+    // Anti-soft-lock: if steering has not closed the gap for a few seconds the
+    // companion is wedged somewhere, so it rejoins the trail directly. Rare by
+    // design - it is the last resort, not the normal follow behaviour.
+    this.lostTimer = behind > FOLLOW.catchUpDistance ? this.lostTimer + dt : 0;
+    if (this.lostTimer > 1.8) {
+      this.lostTimer = 0;
+      const spot = this.trail.pointBehind(this.followDistance);
+      this.world.particles.emit('magic', this.x, this.y - 8, 6, { speed: 30 });
+      this.x = spot.x;
+      this.y = spot.y;
+      this.world.particles.emit('magic', this.x, this.y - 8, 8, { speed: 30 });
+    }
+  }
+
+  /**
+   * Next point to walk to: the companion projects itself onto the leader's
+   * trail and aims a short step further along it, which makes the party walk in
+   * single file over the exact ground the player covered - bridges included.
+   */
+  private followGoal(): { x: number; y: number } {
+    const target = Math.max(0, this.trail.length - this.followDistance);
+    const { progress, distance } = this.trail.nearestProgress(this.x, this.y);
+    // Too far off the path (knocked back, spawned): head straight back to it.
+    if (distance > 48) return this.trail.pointAtProgress(Math.min(target, progress));
+    const step = Math.min(target, progress + 18);
+    return this.trail.pointAtProgress(step);
   }
 
   private updateCombat(dt: number): void {
@@ -205,9 +252,10 @@ export class Companion extends Character {
     const d = dist(this.x, this.y, target.x, target.y);
     const ideal = def.base.attackRange * 0.72;
 
-    // Do not chase the enemy across the level - stay near the caravan.
+    // Do not chase the enemy across the level: past the leash, rejoining the
+    // caravan always wins over finishing a fight.
     const leash = dist(this.x, this.y, this.player.x, this.player.y);
-    if (leash > FOLLOW.catchUpDistance * 1.4) {
+    if (leash > FOLLOW.catchUpDistance * 0.6) {
       this.updateFollow(dt);
       return;
     }
@@ -234,14 +282,16 @@ export class Companion extends Character {
   }
 
   private updateLowHealth(dt: number): void {
-    // Heal if we can, otherwise fall back behind the knight and keep firing.
+    // Heal if we can, then retreat. Retreating means going back to the caravan
+    // on the same trail as usual - a hurt companion must never drift away from
+    // the group, which is exactly how they used to get lost.
     if (this.trySpecific('heal', this) || this.trySpecific('greaterHeal', this)) return;
-    const behind = this.trail.pointBehind(this.followDistance + 20);
-    this.steerTowards(behind.x, behind.y, this.speed * 1.1, dt);
-    this.playState('walk');
-    if (this.target && !this.target.isDead) {
-      this.faceTowards(this.target.x, this.target.y);
-      this.tryCast(this.target, true);
+    this.updateFollow(dt);
+    const target = this.target;
+    if (target && !target.isDead && !this.isLagging) {
+      this.faceTowards(target.x, target.y);
+      // Ranged only: no trading blows in melee while nearly dead.
+      this.tryCast(target, true);
     }
   }
 
@@ -283,6 +333,7 @@ export class Companion extends Character {
 
   private tryCast(target: Character, rangedOnly = false): void {
     if (this.globalCastCd > 0 || this.state === 'hurt') return;
+    if (this.isLagging) return;
 
     // Support first: a dying knight matters more than damage.
     const ally = this.pickHealTarget();

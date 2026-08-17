@@ -369,6 +369,7 @@ export class GameManager implements LevelHooks {
     this.currentLevel = level;
     this.currentWorld = index;
 
+    this.dialogue.clear();
     const keepPlayer = this.player;
     const result = level.build(this.world, this);
     this.checkpoints = result.checkpoints;
@@ -780,6 +781,11 @@ export class GameManager implements LevelHooks {
           id: c.charId,
           ai: c.aiState,
           hp: Math.round(c.hp),
+          x: Math.round(c.x),
+          y: Math.round(c.y),
+          speed: Math.round(Math.hypot(c.vx, c.vy)),
+          lost: Math.round(c.lostTimer * 10) / 10,
+          state: c.state,
           dist: this.player ? Math.round(dist(c.x, c.y, this.player.x, this.player.y)) : -1,
         })),
         enemies: this.world.entitiesOfKind('enemy').length,
@@ -808,6 +814,86 @@ export class GameManager implements LevelHooks {
       },
       debugGoToWorld: (index: number) => this.goToWorld(index),
       debugGiveItem: (id: string) => this.giveItem(id),
+      debugFlags: () => this.quests.serialize(),
+      debugInventory: () => ({ ...this.inventory }),
+      debugEnemies: () => {
+        const player = this.player;
+        return this.world.entitiesOfKind('enemy').map((e) => {
+          const enemy = e as Enemy;
+          return {
+            name: enemy.def.id,
+            hp: Math.round(enemy.hp),
+            maxHp: enemy.maxHp,
+            dist: player ? Math.round(dist(player.x, player.y, enemy.x, enemy.y)) : -1,
+          };
+        });
+      },
+      /** Drops the player right next to a given interactive (npc, chest, quest object). */
+      debugGoToInteractive: (id: string) => {
+        const target = this.world
+          .entitiesOfKind('interactive')
+          .find((e) => (e as Interactive).id === id) as Interactive | undefined;
+        if (!target || !this.player) return false;
+        this.player.x = target.x;
+        this.player.y = target.y + 16;
+        this.trail.reset(this.player.x, this.player.y);
+        this.camera.snapTo(this.player.x, this.player.y);
+        return true;
+      },
+      debugHeal: () => {
+        const player = this.player;
+        if (!player) return;
+        if (player.isDead) {
+          player.state = 'idle';
+          player.alive = true;
+          if (this.state === 'gameover') this.resume();
+        }
+        player.hp = player.maxHp;
+        player.mp = player.maxMp;
+        player.invuln = 1;
+        for (const companion of this.companions) {
+          if (companion.isDead) {
+            companion.state = 'idle';
+            companion.x = player.x;
+            companion.y = player.y + 10;
+          }
+          companion.hp = companion.maxHp;
+          companion.mp = companion.maxMp;
+        }
+      },
+      /** Snaps the escort onto the player - used after a debug teleport. */
+      /** Forces the escort into its low-health behaviour for testing. */
+      debugHurtCompanions: (ratio = 0.2) => {
+        for (const companion of this.companions) {
+          companion.hp = Math.max(1, Math.round(companion.maxHp * ratio));
+        }
+      },
+      debugRegroup: () => {
+        const player = this.player;
+        if (!player) return;
+        this.trail.reset(player.x, player.y);
+        for (const companion of this.companions) {
+          companion.x = player.x;
+          companion.y = player.y + 8;
+        }
+      },
+      debugGoToEnemy: (name?: string) => {
+        const player = this.player;
+        if (!player) return null;
+        const list = this.world
+          .entitiesOfKind('enemy')
+          .map((e) => e as Enemy)
+          .filter((e) => !e.isDead && (!name || e.def.id === name))
+          .sort((a, b) => dist(player.x, player.y, a.x, a.y) - dist(player.x, player.y, b.x, b.y));
+        const target = list[0];
+        if (!target) return null;
+        player.x = target.x;
+        player.y = target.y + 14;
+        player.facing = 'up';
+        this.trail.reset(player.x, player.y);
+        this.camera.snapTo(player.x, player.y);
+        return { name: target.def.id, hp: Math.round(target.hp) };
+      },
     };
   }
 }

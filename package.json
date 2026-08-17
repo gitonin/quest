@@ -8,7 +8,10 @@
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node scripts/smoke.mjs && node scripts/playthrough.mjs",
+    "test:smoke": "node scripts/smoke.mjs",
+    "test:play": "node scripts/playthrough.mjs"
   },
   "license": "ISC",
   "devDependencies": {

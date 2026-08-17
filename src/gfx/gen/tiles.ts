@@ -189,7 +189,7 @@ export function buildForestTiles(): TileSet {
       const y = rng.int(1, TILE - 2);
       buf.ellipseOutline(x, y, 2, 1.5, '#8fd76a', 190);
     }
-  }, { hazard: 6, drag: 0.7, frames: 4, fps: 4 });
+  }, { hazard: 3, drag: 0.7, frames: 4, fps: 4 });
 
   b.add('leaves_dark', (buf) => {
     buf.rect(0, 0, TILE, TILE, FOREST.leafDark);
