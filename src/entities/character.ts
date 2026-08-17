@@ -56,6 +56,8 @@ export abstract class Character extends Entity {
 
   invuln = 0;
   hurtTimer = 0;
+  /** Fractional damage-over-time carried between frames. */
+  private dotDebt = 0;
   knockX = 0;
   knockY = 0;
   deathTimer = 0;
@@ -106,6 +108,10 @@ export abstract class Character extends Entity {
   applyDamage(info: DamageInfo): boolean {
     if (this.isDead) return false;
     if (this.invuln > 0 && !info.ignoreInvuln) return false;
+    // Damage over time arrives in fractions of a point every frame; it must not
+    // go through the "at least 1 damage" floor of a real hit, or a 3 dps swamp
+    // would deal 3 damage *per frame*.
+    if (info.ignoreInvuln) return this.applyTickDamage(info);
 
     let amount = Math.max(1, info.amount - this.defense * 0.5);
     if (this.status.shield.time > 0 && this.status.shield.amount > 0) {
@@ -135,6 +141,18 @@ export abstract class Character extends Entity {
 
     if (info.status) this.applyStatus(info.status);
     this.onDamaged(amount, info);
+    if (this.hp <= 0) this.die();
+    return true;
+  }
+
+  /** Accumulates sub-point damage until it is worth a whole point of HP. */
+  private applyTickDamage(info: DamageInfo): boolean {
+    this.dotDebt += Math.max(0, info.amount - this.defense * 0.02);
+    if (this.dotDebt < 1) return false;
+    const whole = Math.floor(this.dotDebt);
+    this.dotDebt -= whole;
+    this.hp = clamp(this.hp - whole, 0, this.maxHp);
+    this.onDamaged(whole, info);
     if (this.hp <= 0) this.die();
     return true;
   }

@@ -467,7 +467,7 @@ export class GameManager implements LevelHooks {
   joinPrincess(x: number, y: number): void {
     const companion = this.spawnCompanion('princess', this.player?.level ?? 1, null);
     companion.x = x;
-    companion.y = y;
+    companion.y = y + 6;
     this.audio.playSfx('heal');
     this.hud.toast('LYRA REJOINT LE GROUPE');
   }
@@ -475,7 +475,7 @@ export class GameManager implements LevelHooks {
   joinWizard(x: number, y: number): void {
     const companion = this.spawnCompanion('wizard', this.player?.level ?? 1, null);
     companion.x = x;
-    companion.y = y;
+    companion.y = y + 12;
     this.audio.playSfx('magic');
     this.hud.toast('ORIN REJOINT LE GROUPE');
   }
@@ -872,10 +872,10 @@ export class GameManager implements LevelHooks {
         const player = this.player;
         if (!player) return;
         this.trail.reset(player.x, player.y);
-        for (const companion of this.companions) {
+        this.companions.forEach((companion, i) => {
           companion.x = player.x;
-          companion.y = player.y + 8;
-        }
+          companion.y = player.y + 10 + i * 12;
+        });
       },
       debugGoToEnemy: (name?: string) => {
         const player = this.player;

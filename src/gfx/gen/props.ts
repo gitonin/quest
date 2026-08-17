@@ -365,7 +365,7 @@ export function buildProps(): PropBank {
     w: 12,
     h: 26,
     anchorY: 25,
-    light: { x: 6, y: 6, radius: 62, color: '#ffb03a' },
+    light: { x: 6, y: 6, radius: 78, color: '#ffb03a' },
   };
   props.banner = { clip: single(drawBanner()), w: 16, h: 34, anchorY: 4 };
   props.pillar = {

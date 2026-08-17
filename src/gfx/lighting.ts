@@ -46,7 +46,7 @@ export class Lighting {
         break;
       case 'castle':
         this.ambient = '#0a0618';
-        this.ambientAlpha = 0.62;
+        this.ambientAlpha = 0.5;
         this.tint = '#4a2f6e';
         this.tintAlpha = 0.12;
         break;

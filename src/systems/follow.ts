@@ -70,7 +70,18 @@ export class Trail {
     if (this.points.length === 0) return { x: 0, y: 0 };
     const target = this.travelled - distance;
     const first = this.points[0];
-    if (target <= first.travelled) return { x: first.x, y: first.y };
+    if (target <= first.travelled) {
+      // The trail is shorter than what was asked for (party just spawned, or
+      // the leader has not moved yet): extrapolate backwards so the caravan
+      // still lines up instead of stacking on a single point.
+      const missing = first.travelled - target;
+      const next = this.points[1] ?? this.head;
+      const dx = first.x - next.x;
+      const dy = first.y - next.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 0.001) return { x: first.x, y: first.y + missing };
+      return { x: first.x + (dx / len) * missing, y: first.y + (dy / len) * missing };
+    }
 
     for (let i = this.points.length - 1; i > 0; i--) {
       const b = this.points[i];
