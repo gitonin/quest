@@ -6,6 +6,18 @@ d'action 16 bits des années 90.
 **CHEVALIER SEUL → RENCONTRE PRINCESSE → GROUPE À 2 → RENCONTRE MAGICIEN →
 GROUPE À 3 → CHÂTEAU → TRÉSOR → ESPACE → ÉTOILE MAGIQUE.**
 
+## Tester en ligne
+
+Le dépôt déploie automatiquement le jeu sur GitHub Pages à chaque push
+(`.github/workflows/deploy-pages.yml`). **Une activation manuelle est requise
+une seule fois** — le jeton du workflow n'a pas le droit de créer le site :
+
+> Settings → Pages → *Build and deployment* → Source : **GitHub Actions**
+
+Puis relancer le workflow (Actions → *Deploy to GitHub Pages* → *Run workflow*).
+Le jeu est alors servi sur **https://gitonin.github.io/quest/** — ouvrez-le
+directement depuis le navigateur du téléphone, en mode paysage.
+
 ## Démarrer
 
 ```bash
