@@ -25,46 +25,58 @@
       html,
       body {
         width: 100%;
-        height: 100%;
+        min-height: 100%;
         overflow: hidden;
-        background: #05050c;
+        /* Faint nebula so the letterbox around the 16:9 frame reads as
+           deliberate rather than as a blank page. */
+        background:
+          radial-gradient(120% 80% at 50% 0%, #141034 0%, #08061a 45%, #05050c 100%);
         touch-action: none;
         overscroll-behavior: none;
         user-select: none;
         -webkit-user-select: none;
       }
       #game-root {
-        position: fixed;
-        inset: 0;
+        position: relative;
+        width: 100%;
+        height: 100vh;
+        height: 100dvh;
         display: flex;
         align-items: center;
         justify-content: center;
+        overflow: hidden;
       }
       #game-canvas {
         image-rendering: pixelated;
         image-rendering: crisp-edges;
         display: block;
         background: #05050c;
+        box-shadow: 0 0 0 1px #c9a227, 0 0 34px rgba(122, 92, 255, 0.28);
       }
+      /* Bannière discrète: le jeu reste visible et jouable en portrait. */
       #rotate-hint {
-        position: fixed;
-        inset: 0;
+        position: absolute;
+        left: 50%;
+        top: 8px;
+        transform: translateX(-50%);
         display: none;
-        align-items: center;
-        justify-content: center;
-        background: #05050c;
-        color: #cfd6ff;
+        background: rgba(20, 16, 36, 0.92);
+        border: 1px solid #c9a227;
+        color: #f4f0e4;
         font-family: monospace;
-        font-size: 16px;
+        font-size: 11px;
+        letter-spacing: 0.04em;
         text-align: center;
-        padding: 24px;
+        padding: 6px 10px;
+        border-radius: 2px;
         z-index: 50;
+        pointer-events: none;
       }
       body.portrait-warn #rotate-hint {
-        display: flex;
+        display: block;
       }
       #boot-error {
-        position: fixed;
+        position: absolute;
         inset: 0;
         display: none;
         padding: 16px;
@@ -81,8 +93,8 @@
   <body>
     <div id="game-root">
       <canvas id="game-canvas"></canvas>
+      <div id="rotate-hint">↻ Mode paysage recommandé</div>
     </div>
-    <div id="rotate-hint">Tournez votre appareil en mode paysage</div>
     <pre id="boot-error"></pre>
     <script type="module" src="/src/main.ts"></script>
   </body>

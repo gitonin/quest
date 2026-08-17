@@ -34,10 +34,11 @@ export class Renderer {
     const cssScale = Math.min(viewportWidth / GAME_WIDTH, viewportHeight / GAME_HEIGHT);
     const deviceScale = cssScale * dpr;
     // Snap down to an integer device scale when we are close enough to one,
-    // otherwise the pixels shimmer while the camera pans.
-    const integer = Math.max(1, Math.floor(deviceScale));
-    const useInteger = deviceScale - integer < 0.35;
-    this.scale = useInteger ? integer : deviceScale;
+    // otherwise the pixels shimmer while the camera pans. Never snap *up*:
+    // in a small frame that would push the canvas outside its container.
+    const integer = Math.floor(deviceScale);
+    const useInteger = integer >= 1 && deviceScale - integer < 0.35;
+    this.scale = useInteger ? integer : Math.max(0.05, deviceScale);
 
     const pixelW = Math.round(GAME_WIDTH * this.scale);
     const pixelH = Math.round(GAME_HEIGHT * this.scale);
