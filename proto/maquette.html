@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#e9e9e7" />
+    <title>Le Grain</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      html,
+      body {
+        width: 100%;
+        min-height: 100%;
+        overflow: hidden;
+        background: #0b0b0c;
+        touch-action: none;
+        overscroll-behavior: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      #stage {
+        position: relative;
+        width: 100%;
+        height: 100vh;
+        height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: #0b0b0c;
+      }
+      #c {
+        display: block;
+        background: #e9e9e7;
+      }
+      #caption {
+        position: absolute;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #6f6f70;
+        text-align: center;
+        pointer-events: none;
+        transition: opacity 1.2s ease;
+        mix-blend-mode: multiply;
+      }
+      #caption.gone {
+        opacity: 0;
+      }
+      #err {
+        position: absolute;
+        inset: 0;
+        display: none;
+        padding: 16px;
+        font: 12px/1.5 ui-monospace, Menlo, monospace;
+        color: #b3242b;
+        background: #f4f2f0;
+        white-space: pre-wrap;
+        overflow: auto;
+        z-index: 10;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage">
+      <canvas id="c"></canvas>
+      <div id="caption">maintenez pour avancer · flèches au clavier</div>
+      <pre id="err"></pre>
+    </div>
+    <script>
+      (function () {
+        'use strict';
+
+        var stage = document.getElementById('stage');
+        var canvas = document.getElementById('c');
+        var caption = document.getElementById('caption');
+        var errBox = document.getElementById('err');
+        var ctx = canvas.getContext('2d', { alpha: false });
+
+        window.addEventListener('error', function (e) {
+          errBox.style.display = 'block';
+          errBox.textContent = e.message + '\n' + (e.filename || '') + ':' + (e.lineno || 0);
+        });
+
+        /* ------------------------------------------------------------------
+         * Mise en scène.
+         *
+         * Tout est un grain: un petit cube de matière posé dans un volume.
+         * La caméra est un objectif macro placé de côté, à hauteur du sol.
+         * Un grain net est un carré aligné sur la grille; un grain hors du
+         * plan de netteté devient un disque doux dont la surface grandit et
+         * l'opacité baisse d'autant — c'est un cercle de confusion, pas un
+         * flou appliqué à l'image. La trame appartient donc au monde, jamais
+         * à l'écran: c'est ce qui fait lire "maquette filmée" plutôt que
+         * "filtre".
+         * ---------------------------------------------------------------- */
+        var F = 520; // distance focale virtuelle
+        var APERTURE = 0.055; // ouverture: plus grand, flou plus franc
+        var GRAIN = 5; // côté d'un grain, en pixels au plan de netteté
+        var CAM_H = 340; // hauteur de l'objectif: c'est elle qui étale la profondeur
+        var CHUNK = 280; // largeur d'un morceau de monde
+        var INK = '#121214';
+        var RED = '#c8202a';
+
+        var reduceMotion = window.matchMedia
+          ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          : false;
+
+        var W = 0,
+          H = 0,
+          DPR = 1,
+          horizonY = 0,
+          // Échelle de la scène: le cadrage doit être le même sur un écran
+          // court et sur un grand, sinon le plan de netteté sort de l'image.
+          unit = 1;
+
+        function resize() {
+          var r = stage.getBoundingClientRect();
+          DPR = Math.min(2, window.devicePixelRatio || 1);
+          W = Math.max(280, Math.round(r.width) || window.innerWidth);
+          H = Math.max(200, Math.round(r.height) || window.innerHeight);
+          canvas.width = Math.round(W * DPR);
+          canvas.height = Math.round(H * DPR);
+          canvas.style.width = W + 'px';
+          canvas.style.height = H + 'px';
+          ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+          horizonY = Math.round(H * 0.2);
+          unit = H / 720;
+          buildStatics();
+        }
+
+        /* ----------------------------------------------------- aléatoire */
+        function makeRng(seed) {
+          var s = seed >>> 0;
+          function next() {
+            s = (s + 0x6d2b79f5) >>> 0;
+            var t = s;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          }
+          return {
+            next: next,
+            range: function (a, b) {
+              return a + next() * (b - a);
+            },
+            int: function (a, b) {
+              return Math.floor(a + next() * (b - a));
+            },
+            chance: function (p) {
+              return next() < p;
+            }
+          };
+        }
+
+        /* ------------------------------------------------- disques de flou
+         * Un jeu de sprites doux, réutilisés pour tous les grains hors
+         * netteté: quelques canvas au total au lieu d'un dégradé recalculé
+         * des milliers de fois par image.
+         */
+        var RADII = [2, 3, 4.5, 6.5, 9, 12.5, 17, 23, 31, 42, 56];
+        var discsInk = [];
+        var discsRed = [];
+
+        function buildDisc(radius, color, softness) {
+          var size = Math.ceil(radius * 2) + 2;
+          var cv = document.createElement('canvas');
+          cv.width = size;
+          cv.height = size;
+          var c = cv.getContext('2d');
+          var g = c.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+          g.addColorStop(0, color);
+          g.addColorStop(softness, color);
+          g.addColorStop(0.86, hexToRgba(color, 0.42));
+          g.addColorStop(1, hexToRgba(color, 0));
+          c.fillStyle = g;
+          c.fillRect(0, 0, size, size);
+          return cv;
+        }
+
+        function hexToRgba(hex, a) {
+          var v = parseInt(hex.slice(1), 16);
+          return 'rgba(' + ((v >> 16) & 255) + ',' + ((v >> 8) & 255) + ',' + (v & 255) + ',' + a + ')';
+        }
+
+        function buildDiscs() {
+          for (var i = 0; i < RADII.length; i++) {
+            discsInk.push(buildDisc(RADII[i], INK, 0.5));
+            discsRed.push(buildDisc(RADII[i], RED, 0.35));
+          }
+        }
+
+        function discFor(radius, red) {
+          var set = red ? discsRed : discsInk;
+          for (var i = 0; i < RADII.length; i++) {
+            if (RADII[i] >= radius) return set[i];
+          }
+          return set[set.length - 1];
+        }
+
+        /* ------------------------------------------------------ le monde */
+        var chunks = new Map();
+
+        function groundAt(x) {
+          return Math.sin(x * 0.0042) * 13 + Math.sin(x * 0.0011 + 2.1) * 27 + Math.sin(x * 0.019) * 2;
+        }
+
+        // grain = [x, y, z, taille monde, opacité]
+        function grain(list, x, y, z, s, a) {
+          list.push({ x: x, y: y, z: z, s: s, a: a });
+        }
+
+        function buildChunk(ci) {
+          var r = makeRng(ci * 9176 + 1721);
+          var x0 = ci * CHUNK;
+          var back = [];
+          var mid = [];
+          var fore = [];
+          var dust = [];
+          var motes = [];
+          var x, i, j, z, h;
+
+          // Collines lointaines: la brume les éclaircit et les dissout.
+          for (var layer = 0; layer < 4; layer++) {
+            z = 210 + layer * 190 + r.range(-50, 50);
+            var amp = 40 + layer * 26;
+            var phase = r.range(0, 9);
+            var step = 7 + layer * 3;
+            for (x = x0 - 40; x < x0 + CHUNK + 40; x += step) {
+              h = (Math.sin(x * 0.004 + phase) * 0.5 + 0.5) * amp + r.range(-4, 4);
+              var stack = 1 + Math.floor(h / 26);
+              for (j = 0; j < stack; j++) {
+                grain(back, x, j * 9 + r.range(-2, 2), z + r.range(-14, 14), 6 + r.range(0, 5), 0.3 - layer * 0.05);
+              }
+            }
+          }
+
+          // Débris de l'arrière-plan proche.
+          for (i = 0; i < 70; i++) {
+            x = r.range(x0, x0 + CHUNK);
+            z = r.range(45, 170);
+            grain(mid, x, r.range(0, 26), z, r.range(2.5, 5), r.range(0.22, 0.46));
+          }
+
+          // Le sol n'est pas une ligne: c'est un champ qui s'enfonce. Les
+          // cubes sont semés sur une grille (x, z) dont le pas grandit avec
+          // la distance, pour garder une densité constante à l'écran. C'est
+          // ce qui fait exister une surface plutôt qu'un décor découpé.
+          for (z = -240; z < 360; ) {
+            var k = F / (F + z);
+            // Espacement constant à l'écran: dz doit croître en 1/k², sinon
+            // les rangées lointaines s'empilent pour rien.
+            var stepZ = Math.max(7, (2.3 * GRAIN * F) / (CAM_H * k * k));
+            var stepX = Math.max(GRAIN, (GRAIN * 2.1) / k);
+            var row = makeRng(ci * 7717 + Math.round(z + 400) * 131);
+            for (x = x0; x < x0 + CHUNK; x += stepX) {
+              if (row.next() > 0.74) continue; // trous: la matière respire
+              var jx = row.range(-1.5, 1.5);
+              var top = groundAt(x + z * 0.4) + row.range(-1.6, 2.6);
+              var tone = 0.26 + row.range(-0.14, 0.24) - Math.max(0, z) * 0.0007;
+              var cube = ((GRAIN - 1) / k) * 0.94;
+              grain(mid, x + jx, top, z, cube, Math.max(0.05, tone));
+              if (row.next() < 0.2) {
+                grain(mid, x + jx, top + GRAIN / k, z, cube * 0.9, Math.max(0.07, tone + 0.12));
+              }
+            }
+            z += stepZ;
+          }
+
+          // Éclats détachés, posés sur la surface.
+          for (i = 0; i < 30; i++) {
+            x = r.range(x0, x0 + CHUNK);
+            z = r.range(-70, 140);
+            grain(mid, x, groundAt(x + z * 0.4) + r.range(3, 16), z, r.range(2, 4.5), r.range(0.3, 0.6));
+          }
+
+          // Fibres verticales: herbes, poils, cils de poussière. Plantées
+          // partout dans le champ, donc nettes seulement au bon plan.
+          for (i = 0; i < 18; i++) {
+            x = r.range(x0, x0 + CHUNK);
+            z = r.range(-160, 300);
+            var kf = F / (F + z);
+            var len = r.int(4, 13);
+            var lean = r.range(-0.7, 0.7);
+            var base = groundAt(x + z * 0.4);
+            for (j = 0; j < len; j++) {
+              var t = j / len;
+              grain(
+                mid,
+                x + (lean * j * (0.6 + t)) / kf,
+                base + (j * (GRAIN - 0.8)) / kf,
+                z,
+                (GRAIN - 1.6) / kf,
+                0.5 - t * 0.26
+              );
+            }
+          }
+
+          // Premier plan: une tige passée tout près de l'objectif. Elle ne
+          // raconte rien, elle cadre — et c'est la signature de la macro.
+          if (r.chance(0.45)) {
+            var fx = r.range(x0, x0 + CHUNK);
+            var fz = r.range(-400, -300);
+            var fk = F / (F + fz);
+            var lean = r.range(-0.55, 0.55);
+            var baseScreen = r.range(1.5, 2.1); // en hauteurs d'objectif sous le sol net
+            for (j = 0; j < 14; j++) {
+              var fy = CAM_H * (1 - baseScreen / fk) + (j * 26) / fk;
+              grain(fore, fx + lean * j * 22, fy, fz + r.range(-8, 8), r.range(22, 38), r.range(0.3, 0.55));
+            }
+          }
+
+          // Poussière en suspension, à toutes les profondeurs.
+          for (i = 0; i < 9; i++) {
+            dust.push({
+              x: r.range(x0, x0 + CHUNK),
+              y: r.range(14, 190),
+              z: r.range(-260, 260),
+              s: r.range(1.6, 4),
+              a: r.range(0.25, 0.6),
+              ph: r.range(0, Math.PI * 2),
+              sp: r.range(0.25, 0.8)
+            });
+          }
+
+          // La curiosité. Rare, jamais deux dans le même morceau de monde.
+          if (ci % 2 === 0) {
+            var cx = r.range(x0 + 60, x0 + CHUNK - 60);
+            motes.push({
+              x: cx,
+              y: groundAt(cx) + r.range(14, 46),
+              z: r.range(-10, 22),
+              ph: r.range(0, Math.PI * 2),
+              found: 0,
+              gone: 0
+            });
+          }
+
+          back.sort(byDepth);
+          mid.sort(byDepth);
+          fore.sort(byDepth);
+          return { back: back, mid: mid, fore: fore, dust: dust, motes: motes };
+        }
+
+        function byDepth(a, b) {
+          return b.z - a.z;
+        }
+
+        function chunkAt(ci) {
+          var c = chunks.get(ci);
+          if (!c) {
+            c = buildChunk(ci);
+            chunks.set(ci, c);
+          }
+          return c;
+        }
+
+        /* --------------------------------------------------------- état */
+        var cam = { x: 0, drift: 0 };
+        var hero = { x: 0, vx: 0, face: 1, step: 0, bob: 0 };
+        var focusZ = 0;
+        var focusTarget = 0;
+        var time = 0;
+        var held = null; // x visé par le doigt / la souris
+        var keys = Object.create(null);
+        var interacted = false;
+
+        function project(gx, gy, gz) {
+          var k = F / (F + gz);
+          return {
+            k: k,
+            sx: W * 0.5 + (gx - cam.x + cam.drift) * k * unit,
+            sy: horizonY + (CAM_H - gy) * k * unit
+          };
+        }
+
+        var BUCKETS = 10;
+        var inkStyles = [];
+        var queues = [];
+        (function () {
+          for (var i = 0; i < BUCKETS; i++) {
+            inkStyles.push('rgba(18,18,20,' + ((i + 1) / BUCKETS).toFixed(2) + ')');
+            queues.push([]);
+          }
+        })();
+
+        function flushCrisp() {
+          for (var b = 0; b < BUCKETS; b++) {
+            var q = queues[b];
+            if (q.length === 0) continue;
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = inkStyles[b];
+            for (var i = 0; i < q.length; i += 3) ctx.fillRect(q[i], q[i + 1], q[i + 2], q[i + 2]);
+            q.length = 0;
+          }
+        }
+
+        function drawGrain(g, redTint, alphaBoost) {
+          var k = F / (F + g.z);
+          if (k <= 0.03) return;
+          var sx = W * 0.5 + (g.x - cam.x + cam.drift) * k * unit;
+          if (sx < -80 || sx > W + 80) return;
+          var sy = horizonY + (CAM_H - g.y) * k * unit;
+          var size = g.s * k * unit;
+          var coc = Math.abs(g.z - focusZ) * k * APERTURE * unit;
+          var alpha = g.a * (alphaBoost || 1);
+
+          if (coc < 1.1) {
+            var ps = Math.max(1, Math.round(size));
+            if (redTint) {
+              ctx.globalAlpha = Math.min(1, alpha);
+              ctx.fillStyle = RED;
+              ctx.fillRect(Math.round(sx), Math.round(sy), ps, ps);
+            } else {
+              var b = Math.min(BUCKETS - 1, Math.max(0, Math.round(alpha * BUCKETS) - 1));
+              var q = queues[b];
+              q.push(Math.round(sx), Math.round(sy), ps);
+            }
+            return;
+          }
+          // Hors netteté: la matière s'étale et perd d'autant en densité.
+          var radius = Math.min(72, size * 0.5 + coc);
+          var spread = (size * size) / (radius * radius * 3.1);
+          var out = Math.min(1, alpha * Math.max(0.05, spread * 2.4));
+          if (out < 0.015) return; // invisible: ne pas payer le dessin
+          ctx.globalAlpha = out;
+          var sprite = discFor(radius, redTint);
+          var d = radius * 2;
+          ctx.drawImage(sprite, sx - radius, sy - radius, d, d);
+        }
+
+        /* ------------------------------------------------- la créature */
+        // Trois grains de large: assez pour une silhouette, pas assez pour
+        // un personnage. C'est l'échelle qui raconte, pas le dessin.
+        var GAIT = [
+          ['.#.', '###', '#.#'],
+          ['.#.', '###', '.##'],
+          ['.#.', '###', '#.#'],
+          ['.#.', '###', '##.']
+        ];
+
+        function drawHero() {
+          var frame = Math.abs(hero.vx) > 4 ? GAIT[Math.floor(hero.step) % GAIT.length] : GAIT[0];
+          var baseY = groundAt(hero.x) + GRAIN * 3 + hero.bob;  // 3 grains de haut
+          var p = project(hero.x, baseY, 0);
+
+          var cell = GRAIN * unit;
+
+          // Ombre portée: un disque doux, posé au sol.
+          ctx.globalAlpha = 0.3;
+          ctx.drawImage(
+            discFor(9, false),
+            p.sx - cell * 2.6,
+            horizonY + (CAM_H - groundAt(hero.x)) * unit - cell * 0.9,
+            cell * 5.2,
+            cell * 1.9
+          );
+
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = INK;
+          var side = Math.max(2, Math.round(cell * 0.84));
+          for (var row = 0; row < frame.length; row++) {
+            for (var col = 0; col < 3; col++) {
+              if (frame[row][col] !== '#') continue;
+              var gx = Math.round(p.sx + (col - 1) * cell * hero.face - side / 2);
+              var gy = Math.round(p.sy + row * cell);
+              ctx.fillRect(gx, gy, side, side);
+            }
+          }
+        }
+
+        /* --------------------------------------------------- la curiosité
+         * Le rouge n'annonce pas un danger: il appelle. Il pulse doucement,
+         * s'ouvre quand on s'approche, puis s'élève et s'en va.
+         */
+        function updateMote(m, dt) {
+          m.ph += dt * 0.9;
+          var d = Math.abs(m.x - hero.x);
+          if (!m.found && d < 46) {
+            m.found = 1;
+            focusTarget = m.z;
+          }
+          if (m.found) {
+            m.found += dt * 0.55;
+            if (m.found > 2.2 && !m.gone) {
+              m.gone = 1;
+            }
+          }
+          if (m.gone) {
+            m.gone += dt * 0.5;
+            m.y += dt * 16;
+            m.x += dt * 5;
+            if (m.gone > 2.4) focusTarget = 0;
+          }
+          if (m.found && m.found < 2.2) focusTarget = m.z;
+        }
+
+        function drawMote(m) {
+          if (m.gone > 2.6) return;
+          var k = F / (F + m.z);
+          var sx = W * 0.5 + (m.x - cam.x + cam.drift) * k * unit;
+          if (sx < -90 || sx > W + 90) return;
+          var sy = horizonY + (CAM_H - m.y) * k * unit;
+          var pulse = 0.5 + 0.5 * Math.sin(m.ph);
+          var bloom = m.found ? Math.min(1, m.found) : 0;
+          var fade = m.gone ? Math.max(0, 1 - (m.gone - 1) / 1.6) : 1;
+          var coc = Math.abs(m.z - focusZ) * k * APERTURE * unit;
+
+          // Halo: la seule lumière colorée de la scène.
+          ctx.globalAlpha = (0.1 + pulse * 0.1 + bloom * 0.3) * fade;
+          var halo = (12 + pulse * 5 + bloom * 26 + coc * 2) * k * unit;
+          ctx.drawImage(discFor(halo, true), sx - halo, sy - halo, halo * 2, halo * 2);
+
+          // Le grain lui-même, net s'il est dans le plan.
+          drawGrain({ x: m.x, y: m.y, z: m.z, s: GRAIN - 1 + bloom * 1.5, a: fade }, true, 1);
+
+          // Éclats qui s'échappent quand elle s'ouvre.
+          if (bloom > 0.15) {
+            for (var i = 0; i < 5; i++) {
+              var a = m.ph * 0.6 + (i / 5) * Math.PI * 2;
+              var rr = (10 + bloom * 26) * k;
+              ctx.globalAlpha = 0.5 * bloom * fade;
+              ctx.fillStyle = RED;
+              ctx.fillRect(Math.round(sx + Math.cos(a) * rr), Math.round(sy + Math.sin(a) * rr * 0.7), 2, 2);
+            }
+          }
+        }
+
+        /* ------------------------------------------------------- rendu */
+        var noiseTile = null;
+        var bgLayer = null;
+        var vigLayer = null;
+        var noiseLayer = null;
+
+        function buildStatics() {
+          bgLayer = document.createElement('canvas');
+          bgLayer.width = W;
+          bgLayer.height = H;
+          var bc = bgLayer.getContext('2d');
+          var g = bc.createLinearGradient(0, 0, 0, H);
+          g.addColorStop(0, '#f3f2f0');
+          g.addColorStop(0.42, '#e7e6e4');
+          g.addColorStop(0.72, '#dcdbd9');
+          g.addColorStop(1, '#cfcecd');
+          bc.fillStyle = g;
+          bc.fillRect(0, 0, W, H);
+
+          vigLayer = document.createElement('canvas');
+          vigLayer.width = W;
+          vigLayer.height = H;
+          var vc = vigLayer.getContext('2d');
+          var v = vc.createRadialGradient(W / 2, H * 0.5, Math.min(W, H) * 0.32, W / 2, H * 0.5, Math.max(W, H) * 0.78);
+          v.addColorStop(0, 'rgba(0,0,0,0)');
+          v.addColorStop(1, 'rgba(20,20,22,0.3)');
+          vc.fillStyle = v;
+          vc.fillRect(0, 0, W, H);
+
+          if (noiseTile) {
+            noiseLayer = document.createElement('canvas');
+            noiseLayer.width = W + 130;
+            noiseLayer.height = H + 130;
+            var nc = noiseLayer.getContext('2d');
+            nc.fillStyle = nc.createPattern(noiseTile, 'repeat');
+            nc.fillRect(0, 0, noiseLayer.width, noiseLayer.height);
+          }
+        }
+
+        function buildNoise() {
+          var n = 128;
+          var cv = document.createElement('canvas');
+          cv.width = n;
+          cv.height = n;
+          var c = cv.getContext('2d');
+          var img = c.createImageData(n, n);
+          for (var i = 0; i < img.data.length; i += 4) {
+            var v = 128 + (Math.random() * 2 - 1) * 60;
+            img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+            img.data[i + 3] = 26;
+          }
+          c.putImageData(img, 0, 0);
+          noiseTile = cv;
+        }
+
+        function backdrop() {
+          ctx.globalAlpha = 1;
+          if (bgLayer) ctx.drawImage(bgLayer, 0, 0);
+
+          // Lueur rouge très lointaine: une promesse, hors de portée.
+          var glowX = W * 0.5 + (2400 - cam.x) * (F / (F + 900));
+          if (glowX > -160 && glowX < W + 160) {
+            ctx.globalAlpha = 0.22;
+            ctx.drawImage(discFor(56, true), glowX - 70, horizonY - 28, 140, 140);
+          }
+        }
+
+        function postProcess() {
+          ctx.globalAlpha = 1;
+          // Grain argentique: la même nappe, décalée à chaque image.
+          if (noiseLayer) {
+            var ox = reduceMotion ? 0 : Math.floor(Math.random() * 128);
+            var oy = reduceMotion ? 0 : Math.floor(Math.random() * 128);
+            ctx.drawImage(noiseLayer, -ox, -oy);
+          }
+          // Vignette: l'objectif n'éclaire pas jusqu'aux bords.
+          if (vigLayer) ctx.drawImage(vigLayer, 0, 0);
+        }
+
+        function visibleChunks() {
+          var span = (W * 0.5 + 420) / 1;
+          var from = Math.floor((cam.x - span) / CHUNK);
+          var to = Math.floor((cam.x + span) / CHUNK);
+          var out = [];
+          for (var i = from - 1; i <= to + 1; i++) out.push(chunkAt(i));
+          return out;
+        }
+
+        function render(dt) {
+          backdrop();
+          var list = visibleChunks();
+          var i, j, c;
+
+          for (i = 0; i < list.length; i++) {
+            c = list[i];
+            for (j = 0; j < c.back.length; j++) drawGrain(c.back[j], false, 1);
+          }
+          flushCrisp();
+          for (i = 0; i < list.length; i++) {
+            c = list[i];
+            for (j = 0; j < c.mid.length; j++) drawGrain(c.mid[j], false, 1);
+          }
+          flushCrisp();
+
+          // Poussière: elle dérive, elle respire.
+          for (i = 0; i < list.length; i++) {
+            c = list[i];
+            for (j = 0; j < c.dust.length; j++) {
+              var d = c.dust[j];
+              d.ph += dt * d.sp;
+              drawGrain(
+                { x: d.x + Math.sin(d.ph) * 9, y: d.y + Math.cos(d.ph * 0.7) * 6, z: d.z, s: d.s, a: d.a },
+                false,
+                1
+              );
+            }
+          }
+
+          flushCrisp();
+          drawHero();
+
+          for (i = 0; i < list.length; i++) {
+            c = list[i];
+            for (j = 0; j < c.motes.length; j++) {
+              updateMote(c.motes[j], dt);
+              drawMote(c.motes[j]);
+            }
+          }
+
+          // Le premier plan passe devant tout le reste.
+          for (i = 0; i < list.length; i++) {
+            c = list[i];
+            for (j = 0; j < c.fore.length; j++) drawGrain(c.fore[j], false, 1);
+          }
+
+          flushCrisp();
+          postProcess();
+        }
+
+        /* ------------------------------------------------------ logique */
+        function update(dt) {
+          time += dt;
+
+          var dir = 0;
+          if (keys['ArrowLeft'] || keys['KeyA'] || keys['KeyQ']) dir -= 1;
+          if (keys['ArrowRight'] || keys['KeyD']) dir += 1;
+          if (held !== null) {
+            var toward = held - W * 0.5;
+            if (Math.abs(toward) > 12) dir = toward > 0 ? 1 : -1;
+          }
+
+          var speed = 52;
+          hero.vx += (dir * speed - hero.vx) * Math.min(1, dt * 9);
+          hero.x += hero.vx * dt;
+          if (Math.abs(hero.vx) > 4) {
+            hero.face = hero.vx > 0 ? 1 : -1;
+            hero.step += dt * 9;
+            hero.bob = Math.sin(hero.step * Math.PI) > 0 ? 0 : 1;
+          } else {
+            hero.bob = Math.sin(time * 1.6) > 0.7 ? 1 : 0;
+          }
+
+          cam.x += (hero.x - cam.x) * Math.min(1, dt * 2.4);
+          // Respiration de l'opérateur: infime, mais c'est elle qui fait
+          // croire à une caméra tenue au-dessus d'une maquette.
+          cam.drift = reduceMotion ? 0 : Math.sin(time * 0.53) * 2.4 + Math.sin(time * 1.31) * 0.9;
+
+          // Respiration du point, puis retour au plan de la créature.
+          var breathe = reduceMotion ? 0 : Math.sin(time * 0.31) * 3.5;
+          focusZ += (focusTarget + breathe - focusZ) * Math.min(1, dt * 2.2);
+
+          // On ne garde que le monde proche en mémoire.
+          if (chunks.size > 14) {
+            var keep = Math.floor(cam.x / CHUNK);
+            chunks.forEach(function (_, key) {
+              if (Math.abs(key - keep) > 5) chunks.delete(key);
+            });
+          }
+        }
+
+        /* ------------------------------------------------------- entrées */
+        function markInteracted() {
+          if (interacted) return;
+          interacted = true;
+          caption.classList.add('gone');
+        }
+
+        stage.addEventListener('pointerdown', function (e) {
+          markInteracted();
+          held = e.clientX - canvas.getBoundingClientRect().left;
+          stage.setPointerCapture(e.pointerId);
+        });
+        stage.addEventListener('pointermove', function (e) {
+          if (held === null) return;
+          held = e.clientX - canvas.getBoundingClientRect().left;
+        });
+        function release() {
+          held = null;
+        }
+        stage.addEventListener('pointerup', release);
+        stage.addEventListener('pointercancel', release);
+        stage.addEventListener('pointerleave', release);
+
+        window.addEventListener('keydown', function (e) {
+          keys[e.code] = true;
+          if (e.code.indexOf('Arrow') === 0) e.preventDefault();
+          markInteracted();
+        });
+        window.addEventListener('keyup', function (e) {
+          keys[e.code] = false;
+        });
+
+        window.addEventListener('resize', resize);
+        window.addEventListener('orientationchange', function () {
+          setTimeout(resize, 120);
+        });
+        if (typeof ResizeObserver !== 'undefined') new ResizeObserver(resize).observe(stage);
+
+        /* -------------------------------------------------------- départ */
+        var last = 0;
+        var fpsSamples = [];
+        function loop(now) {
+          var dt = Math.min(0.05, (now - last) / 1000 || 0);
+          last = now;
+          if (dt > 0) fpsSamples.push(1 / dt);
+          if (fpsSamples.length > 120) fpsSamples.shift();
+          update(dt);
+          render(dt);
+          requestAnimationFrame(loop);
+        }
+
+        resize();
+        buildDiscs();
+        buildNoise();
+        hero.x = 40;
+        cam.x = 40;
+        window.__grain = {
+          fps: function () {
+            var s = 0;
+            for (var i = 0; i < fpsSamples.length; i++) s += fpsSamples[i];
+            return Math.round(s / Math.max(1, fpsSamples.length));
+          },
+          state: function () {
+            return { heroX: Math.round(hero.x), camX: Math.round(cam.x), focusZ: Math.round(focusZ), chunks: chunks.size };
+          },
+          walk: function (dir) {
+            keys['ArrowRight'] = dir > 0;
+            keys['ArrowLeft'] = dir < 0;
+          }
+        };
+        last = performance.now();
+        requestAnimationFrame(loop);
+      })();
+    </script>
+  </body>
+</html>
