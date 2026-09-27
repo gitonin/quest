@@ -1,0 +1,1835 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#e9e9e7" />
+    <title>La Phrase</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      html,
+      body {
+        width: 100%;
+        min-height: 100%;
+        overflow: hidden;
+        background: #0b0b0c;
+        touch-action: none;
+        overscroll-behavior: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      #stage {
+        position: relative;
+        width: 100%;
+        height: 100vh;
+        height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: #0b0b0c;
+      }
+      #c {
+        display: block;
+        background: #e9e9e7;
+      }
+      #caption {
+        position: absolute;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #6f6f70;
+        text-align: center;
+        pointer-events: none;
+        transition: opacity 1.2s ease;
+        mix-blend-mode: multiply;
+      }
+      #caption.gone {
+        opacity: 0;
+      }
+      /* Tout le texte partage la même voix: petite, espacée, en noir sur le
+         fond clair. Aucune boîte opaque, rien qui ressemble à un HUD de jeu. */
+      #hud {
+        position: absolute;
+        top: 14px;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        align-items: center;
+        font: 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: #59595c;
+        pointer-events: none;
+        mix-blend-mode: multiply;
+      }
+      #hud .phrase {
+        display: flex;
+        gap: 4px;
+      }
+      #hud .tick {
+        width: 4px;
+        height: 4px;
+        background: #cfcfcf;
+      }
+      #hud .tick.on {
+        background: #c8202a;
+      }
+      #region {
+        position: absolute;
+        top: 42%;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font: 13px/1.6 ui-monospace, Menlo, monospace;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: #2a2a2c;
+        opacity: 0;
+        transition: opacity 1.4s ease;
+        pointer-events: none;
+        mix-blend-mode: multiply;
+      }
+      #region.show {
+        opacity: 1;
+      }
+      #talk {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 14px 18px calc(16px + env(safe-area-inset-bottom));
+        display: none;
+        flex-direction: column;
+        gap: 10px;
+        background: linear-gradient(to top, rgba(240, 239, 237, 0.97), rgba(240, 239, 237, 0));
+        font: 13px/1.55 ui-monospace, Menlo, monospace;
+        color: #1b1b1d;
+      }
+      #talk.open {
+        display: flex;
+      }
+      #talk .who {
+        font-size: 10px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: #8a8a8d;
+      }
+      #talk .line {
+        max-width: 42em;
+      }
+      #talk .choices {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      #talk button {
+        font: inherit;
+        color: #1b1b1d;
+        background: transparent;
+        border: 1px solid #b9b8b6;
+        padding: 11px 14px;
+        min-height: 44px;
+        cursor: pointer;
+        letter-spacing: 0.04em;
+      }
+      #talk button:hover,
+      #talk button:focus-visible {
+        border-color: #c8202a;
+        color: #c8202a;
+        outline: none;
+      }
+      #ask {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 26%;
+        text-align: center;
+        font: 11px/1.6 ui-monospace, Menlo, monospace;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: #c8202a;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+        mix-blend-mode: multiply;
+      }
+      #ask.show {
+        opacity: 1;
+      }
+      #ask .bar {
+        margin: 7px auto 0;
+        width: 92px;
+        height: 2px;
+        background: #d6d5d3;
+      }
+      #ask .bar i {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: #c8202a;
+      }
+      #err {
+        position: absolute;
+        inset: 0;
+        display: none;
+        padding: 16px;
+        font: 12px/1.5 ui-monospace, Menlo, monospace;
+        color: #b3242b;
+        background: #f4f2f0;
+        white-space: pre-wrap;
+        overflow: auto;
+        z-index: 10;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage">
+      <canvas id="c"></canvas>
+      <div id="hud"><span class="phrase" id="phrase"></span></div>
+      <div id="region"></div>
+      <div id="ask"><span id="ask-label"></span><span class="bar"><i id="ask-bar"></i></span></div>
+      <div id="talk">
+        <div class="who" id="talk-who"></div>
+        <div class="line" id="talk-line"></div>
+        <div class="choices" id="talk-choices"></div>
+      </div>
+      <div id="caption">glissez pour marcher · haut et bas pour entrer dans la profondeur</div>
+      <pre id="err"></pre>
+    </div>
+    <script>
+      (function () {
+        'use strict';
+
+        var stage = document.getElementById('stage');
+        var hud = {
+          phrase: document.getElementById('phrase'),
+          region: document.getElementById('region'),
+          talk: document.getElementById('talk'),
+          who: document.getElementById('talk-who'),
+          line: document.getElementById('talk-line'),
+          choices: document.getElementById('talk-choices'),
+          ask: document.getElementById('ask'),
+          askLabel: document.getElementById('ask-label'),
+          askBar: document.getElementById('ask-bar')
+        };
+        var canvas = document.getElementById('c');
+        var caption = document.getElementById('caption');
+        var errBox = document.getElementById('err');
+        var ctx = canvas.getContext('2d', { alpha: false });
+
+        window.addEventListener('error', function (e) {
+          errBox.style.display = 'block';
+          errBox.textContent = e.message + '\n' + (e.filename || '') + ':' + (e.lineno || 0);
+        });
+
+        /* ------------------------------------------------------------------
+         * Mise en scène.
+         *
+         * Tout est un grain: un petit cube de matière posé dans un volume.
+         * La caméra est un objectif macro placé de côté, à hauteur du sol.
+         * Un grain net est un carré aligné sur la grille; un grain hors du
+         * plan de netteté devient un disque doux dont la surface grandit et
+         * l'opacité baisse d'autant — c'est un cercle de confusion, pas un
+         * flou appliqué à l'image. La trame appartient donc au monde, jamais
+         * à l'écran: c'est ce qui fait lire "maquette filmée" plutôt que
+         * "filtre".
+         * ---------------------------------------------------------------- */
+        var F = 520; // distance focale virtuelle
+        var APERTURE = 0.055; // ouverture: plus grand, flou plus franc
+        var GRAIN = 5; // côté d'un grain, en pixels au plan de netteté
+        var CAM_H = 340; // hauteur de l'objectif: c'est elle qui étale la profondeur
+        var CHUNK = 280; // largeur d'un morceau de monde
+        var NOTE_SPACING = 26; // écart entre deux notes posées au sol
+        var REGION = 1400; // longueur d'un mouvement: la tonalité y change
+        var INK = '#121214';
+        var RED = '#c8202a';
+
+        /* ------------------------------------------------------------------
+         * Le son.
+         *
+         * Il n'y a pas de piste musicale: le monde EST la partition. Des notes
+         * sont posées dans le décor, et la créature est la tête de lecture.
+         * Avancer lit la phrase, reculer la joue à l'envers — sans rien
+         * inverser, simplement parce qu'on croise les mêmes notes dans l'autre
+         * sens. La profondeur choisit la voix: près, des cloches; au milieu,
+         * la mélodie; loin, les basses, plus sourdes et plus réverbérées.
+         * ---------------------------------------------------------------- */
+        var Sound = (function () {
+          var ac = null,
+            master = null,
+            tone = null, // passe-bas piloté par la profondeur
+            echo = null,
+            drone = null,
+            droneGain = null,
+            ready = false,
+            voices = 0,
+            lastAt = 0;
+
+          var SCALE = [0, 3, 5, 7, 10]; // pentatonique mineure: jamais faux
+          var tonic = 0;
+
+          function unlock() {
+            if (ready) {
+              if (ac && ac.state === 'suspended') ac.resume();
+              return;
+            }
+            var AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return;
+            try {
+              ac = new AC();
+            } catch (e) {
+              return;
+            }
+            master = ac.createGain();
+            master.gain.value = 0.0001;
+            master.connect(ac.destination);
+
+            tone = ac.createBiquadFilter();
+            tone.type = 'lowpass';
+            tone.frequency.value = 5200;
+            tone.Q.value = 0.4;
+            tone.connect(master);
+
+            // Réverbération pauvre mais crédible: un délai qui se remord la
+            // queue, filtré pour qu'il s'éteigne dans le grave.
+            var d = ac.createDelay(1.2);
+            d.delayTime.value = 0.23;
+            var fb = ac.createGain();
+            fb.gain.value = 0.36;
+            var dlp = ac.createBiquadFilter();
+            dlp.type = 'lowpass';
+            dlp.frequency.value = 1800;
+            d.connect(dlp);
+            dlp.connect(fb);
+            fb.connect(d);
+            var wet = ac.createGain();
+            wet.gain.value = 0.4;
+            d.connect(wet);
+            wet.connect(tone);
+            echo = d;
+
+            // Bourdon: la tonalité de la région, toujours là, très bas.
+            drone = ac.createOscillator();
+            var drone2 = ac.createOscillator();
+            droneGain = ac.createGain();
+            droneGain.gain.value = 0.05;
+            drone.type = 'sine';
+            drone2.type = 'sine';
+            drone.frequency.value = freq(tonic - 24);
+            drone2.frequency.value = freq(tonic - 24) * 1.005;
+            drone.connect(droneGain);
+            drone2.connect(droneGain);
+            droneGain.connect(tone);
+            drone.start();
+            drone2.start();
+            drone.__twin = drone2;
+
+            master.gain.setTargetAtTime(0.85, ac.currentTime, 1.2);
+            ready = true;
+          }
+
+          function freq(semi) {
+            return 220 * Math.pow(2, semi / 12);
+          }
+
+          function degreeToSemi(deg) {
+            var octave = Math.floor(deg / SCALE.length);
+            var step = ((deg % SCALE.length) + SCALE.length) % SCALE.length;
+            return tonic + SCALE[step] + octave * 12;
+          }
+
+          function play(kind, deg, vel, delaySec) {
+            if (!ready || !ac) return;
+            var now = ac.currentTime + (delaySec || 0);
+            // Garde-fou: sur mobile, trop de voix simultanées saturent tout.
+            if (now - lastAt < 0.045 || voices > 14) return;
+            lastAt = now;
+
+            var semi = degreeToSemi(deg);
+            var f = freq(semi);
+            var dur = 1;
+            var type = 'triangle';
+            if (kind === 'bell') {
+              type = 'sine';
+              f *= 2;
+              dur = 1.9;
+            } else if (kind === 'bass') {
+              type = 'sine';
+              f /= 2;
+              dur = 2.6;
+            }
+
+            var o = ac.createOscillator();
+            var g = ac.createGain();
+            o.type = type;
+            o.frequency.setValueAtTime(f, now);
+            g.gain.setValueAtTime(0.0001, now);
+            g.gain.exponentialRampToValueAtTime(Math.max(0.002, vel), now + (kind === 'bass' ? 0.09 : 0.006));
+            g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+            o.connect(g);
+            g.connect(tone);
+            if (echo) g.connect(echo);
+            o.start(now);
+            o.stop(now + dur + 0.05);
+            voices++;
+            o.onended = function () {
+              voices--;
+            };
+          }
+
+          return {
+            unlock: unlock,
+            ready: function () {
+              return ready;
+            },
+            note: play,
+            // La profondeur assombrit tout: c'est l'équivalent sonore du flou.
+            setDepth: function (z) {
+              if (!ready) return;
+              var t = Math.max(0, Math.min(1, (z + 80) / 260));
+              tone.frequency.setTargetAtTime(6200 - t * 5100, ac.currentTime, 0.25);
+              droneGain.gain.setTargetAtTime(0.035 + t * 0.07, ac.currentTime, 0.4);
+            },
+            setTonic: function (semi) {
+              tonic = semi;
+              if (!ready) return;
+              drone.frequency.setTargetAtTime(freq(semi - 24), ac.currentTime, 1.2);
+              drone.__twin.frequency.setTargetAtTime(freq(semi - 24) * 1.005, ac.currentTime, 1.2);
+            },
+            // Un motif joué d'un coup: c'est la récompense d'une rencontre.
+            motif: function (degs, kind, gap) {
+              for (var i = 0; i < degs.length; i++) play(kind || 'bell', degs[i], 0.16, i * (gap || 0.14));
+            }
+          };
+        })();
+
+        var reduceMotion = window.matchMedia
+          ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          : false;
+
+        var W = 0,
+          H = 0,
+          DPR = 1,
+          horizonY = 0,
+          // Échelle de la scène: le cadrage doit être le même sur un écran
+          // court et sur un grand, sinon le plan de netteté sort de l'image.
+          unit = 1;
+
+        function resize() {
+          var r = stage.getBoundingClientRect();
+          DPR = Math.min(2, window.devicePixelRatio || 1);
+          W = Math.max(280, Math.round(r.width) || window.innerWidth);
+          H = Math.max(200, Math.round(r.height) || window.innerHeight);
+          canvas.width = Math.round(W * DPR);
+          canvas.height = Math.round(H * DPR);
+          canvas.style.width = W + 'px';
+          canvas.style.height = H + 'px';
+          ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+          horizonY = Math.round(H * 0.2);
+          unit = H / 720;
+          buildStatics();
+        }
+
+        /* ----------------------------------------------------- aléatoire */
+        function makeRng(seed) {
+          var s = seed >>> 0;
+          function next() {
+            s = (s + 0x6d2b79f5) >>> 0;
+            var t = s;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          }
+          return {
+            next: next,
+            range: function (a, b) {
+              return a + next() * (b - a);
+            },
+            int: function (a, b) {
+              return Math.floor(a + next() * (b - a));
+            },
+            chance: function (p) {
+              return next() < p;
+            }
+          };
+        }
+
+        /* ------------------------------------------------- disques de flou
+         * Un jeu de sprites doux, réutilisés pour tous les grains hors
+         * netteté: quelques canvas au total au lieu d'un dégradé recalculé
+         * des milliers de fois par image.
+         */
+        var RADII = [2, 3, 4.5, 6.5, 9, 12.5, 17, 23, 31, 42, 56];
+        var discsInk = [];
+        var discsRed = [];
+
+        function buildDisc(radius, color, softness) {
+          var size = Math.ceil(radius * 2) + 2;
+          var cv = document.createElement('canvas');
+          cv.width = size;
+          cv.height = size;
+          var c = cv.getContext('2d');
+          var g = c.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+          g.addColorStop(0, color);
+          g.addColorStop(softness, color);
+          g.addColorStop(0.86, hexToRgba(color, 0.42));
+          g.addColorStop(1, hexToRgba(color, 0));
+          c.fillStyle = g;
+          c.fillRect(0, 0, size, size);
+          return cv;
+        }
+
+        function hexToRgba(hex, a) {
+          var v = parseInt(hex.slice(1), 16);
+          return 'rgba(' + ((v >> 16) & 255) + ',' + ((v >> 8) & 255) + ',' + (v & 255) + ',' + a + ')';
+        }
+
+        function buildDiscs() {
+          for (var i = 0; i < RADII.length; i++) {
+            discsInk.push(buildDisc(RADII[i], INK, 0.5));
+            discsRed.push(buildDisc(RADII[i], RED, 0.35));
+          }
+        }
+
+        function discFor(radius, red) {
+          var set = red ? discsRed : discsInk;
+          for (var i = 0; i < RADII.length; i++) {
+            if (RADII[i] >= radius) return set[i];
+          }
+          return set[set.length - 1];
+        }
+
+        /* ------------------------------------------------------ le monde */
+        var chunks = new Map();
+
+        function groundAt(x) {
+          return Math.sin(x * 0.0042) * 13 + Math.sin(x * 0.0011 + 2.1) * 27 + Math.sin(x * 0.019) * 2;
+        }
+
+        // grain = [x, y, z, taille monde, opacité]
+        function grain(list, x, y, z, s, a) {
+          list.push({ x: x, y: y, z: z, s: s, a: a });
+        }
+
+        function buildChunk(ci) {
+          var r = makeRng(ci * 9176 + 1721);
+          var x0 = ci * CHUNK;
+          var back = [];
+          var mid = [];
+          var fore = [];
+          var dust = [];
+          var motes = [];
+          var x, i, j, z, h;
+
+          // Collines lointaines: la brume les éclaircit et les dissout.
+          for (var layer = 0; layer < 4; layer++) {
+            z = 210 + layer * 190 + r.range(-50, 50);
+            var amp = 40 + layer * 26;
+            var phase = r.range(0, 9);
+            var step = 7 + layer * 3;
+            for (x = x0 - 40; x < x0 + CHUNK + 40; x += step) {
+              h = (Math.sin(x * 0.004 + phase) * 0.5 + 0.5) * amp + r.range(-4, 4);
+              var stack = 1 + Math.floor(h / 26);
+              for (j = 0; j < stack; j++) {
+                grain(back, x, j * 9 + r.range(-2, 2), z + r.range(-14, 14), 6 + r.range(0, 5), 0.3 - layer * 0.05);
+              }
+            }
+          }
+
+          // Débris de l'arrière-plan proche.
+          for (i = 0; i < 70; i++) {
+            x = r.range(x0, x0 + CHUNK);
+            z = r.range(45, 170);
+            grain(mid, x, r.range(0, 26), z, r.range(2.5, 5), r.range(0.22, 0.46));
+          }
+
+          // Le sol n'est pas une ligne: c'est un champ qui s'enfonce. Les
+          // cubes sont semés sur une grille (x, z) dont le pas grandit avec
+          // la distance, pour garder une densité constante à l'écran. C'est
+          // ce qui fait exister une surface plutôt qu'un décor découpé.
+          for (z = -240; z < 360; ) {
+            var k = F / (F + z);
+            // Espacement constant à l'écran: dz doit croître en 1/k², sinon
+            // les rangées lointaines s'empilent pour rien.
+            var stepZ = Math.max(7, (2.3 * GRAIN * F) / (CAM_H * k * k));
+            var stepX = Math.max(GRAIN, (GRAIN * 2.1) / k);
+            var row = makeRng(ci * 7717 + Math.round(z + 400) * 131);
+            for (x = x0; x < x0 + CHUNK; x += stepX) {
+              if (row.next() > 0.74) continue; // trous: la matière respire
+              var jx = row.range(-1.5, 1.5);
+              var top = groundAt(x + z * 0.4) + row.range(-1.6, 2.6);
+              var tone = 0.26 + row.range(-0.14, 0.24) - Math.max(0, z) * 0.0007;
+              var cube = ((GRAIN - 1) / k) * 0.94;
+              grain(mid, x + jx, top, z, cube, Math.max(0.05, tone));
+              if (row.next() < 0.2) {
+                grain(mid, x + jx, top + GRAIN / k, z, cube * 0.9, Math.max(0.07, tone + 0.12));
+              }
+            }
+            z += stepZ;
+          }
+
+          // Éclats détachés, posés sur la surface.
+          for (i = 0; i < 30; i++) {
+            x = r.range(x0, x0 + CHUNK);
+            z = r.range(-70, 140);
+            grain(mid, x, groundAt(x + z * 0.4) + r.range(3, 16), z, r.range(2, 4.5), r.range(0.3, 0.6));
+          }
+
+          // Fibres verticales: herbes, poils, cils de poussière. Plantées
+          // partout dans le champ, donc nettes seulement au bon plan.
+          for (i = 0; i < 18; i++) {
+            x = r.range(x0, x0 + CHUNK);
+            z = r.range(-160, 300);
+            var kf = F / (F + z);
+            var len = r.int(4, 13);
+            var lean = r.range(-0.7, 0.7);
+            var base = groundAt(x + z * 0.4);
+            for (j = 0; j < len; j++) {
+              var t = j / len;
+              grain(
+                mid,
+                x + (lean * j * (0.6 + t)) / kf,
+                base + (j * (GRAIN - 0.8)) / kf,
+                z,
+                (GRAIN - 1.6) / kf,
+                0.5 - t * 0.26
+              );
+            }
+          }
+
+          // Premier plan: une tige passée tout près de l'objectif. Elle ne
+          // raconte rien, elle cadre — et c'est la signature de la macro.
+          if (r.chance(0.45)) {
+            var fx = r.range(x0, x0 + CHUNK);
+            var fz = r.range(-400, -300);
+            var fk = F / (F + fz);
+            var lean = r.range(-0.55, 0.55);
+            var baseScreen = r.range(1.5, 2.1); // en hauteurs d'objectif sous le sol net
+            for (j = 0; j < 14; j++) {
+              var fy = CAM_H * (1 - baseScreen / fk) + (j * 26) / fk;
+              grain(fore, fx + lean * j * 22, fy, fz + r.range(-8, 8), r.range(22, 38), r.range(0.3, 0.55));
+            }
+          }
+
+          // Poussière en suspension, à toutes les profondeurs.
+          for (i = 0; i < 9; i++) {
+            dust.push({
+              x: r.range(x0, x0 + CHUNK),
+              y: r.range(14, 190),
+              z: r.range(-260, 260),
+              s: r.range(1.6, 4),
+              a: r.range(0.25, 0.6),
+              ph: r.range(0, Math.PI * 2),
+              sp: r.range(0.25, 0.8)
+            });
+          }
+
+          // La curiosité. Rare, jamais deux dans le même morceau de monde.
+          if (ci % 2 === 0) {
+            var cx = r.range(x0 + 60, x0 + CHUNK - 60);
+            motes.push({
+              x: cx,
+              y: groundAt(cx) + r.range(14, 46),
+              z: r.range(-10, 22),
+              ph: r.range(0, Math.PI * 2),
+              found: 0,
+              gone: 0
+            });
+          }
+
+          // --- La partition ------------------------------------------------
+          // Les notes sont des objets du monde, posés sur trois bandes de
+          // profondeur. On n'en entend que celles dont on longe la bande:
+          // changer de profondeur, c'est changer d'instrument.
+          var notes = [];
+          var nx = Math.ceil(x0 / NOTE_SPACING) * NOTE_SPACING;
+          for (; nx < x0 + CHUNK; nx += NOTE_SPACING) {
+            var rn = makeRng(Math.round(nx) * 977 + 13);
+            if (rn.next() < 0.16) continue; // les silences font la phrase
+            var contour = Math.sin(nx * 0.0035) * 2.4 + Math.sin(nx * 0.0013 + 1.1) * 1.9;
+            var bands = [
+              { z: rn.range(-76, -34), kind: 'bell', p: 0.4, oct: 1 },
+              { z: rn.range(-12, 46), kind: 'pluck', p: 1, oct: 0 },
+              { z: rn.range(96, 190), kind: 'bass', p: 0.48, oct: -1 }
+            ];
+            for (var bi = 0; bi < bands.length; bi++) {
+              var band = bands[bi];
+              if (rn.next() > band.p) continue;
+              var nxx = nx + rn.range(-3, 3);
+              notes.push({
+                x: nxx,
+                z: band.z,
+                y: groundAt(nxx + band.z * 0.4) + 1,
+                deg: Math.round(contour + rn.range(-0.6, 0.6)) + band.oct * 5,
+                kind: band.kind,
+                lit: 0
+              });
+            }
+          }
+
+          // --- Les créatures -----------------------------------------------
+          var creatures = [];
+          if (ci % 3 === 1) {
+            var cr = makeRng(ci * 5501 + 77);
+            var ccx = cr.range(x0 + 70, x0 + CHUNK - 70);
+            // Les tiges de premier plan masquent tout: on s'en écarte.
+            for (var fi = 0; fi < fore.length; fi += 14) {
+              if (Math.abs(fore[fi].x - ccx) < 70) ccx += 110;
+            }
+            var ccz = cr.range(-34, 64);
+            creatures.push({
+              id: 'c' + ci,
+              x: ccx,
+              z: ccz,
+              y: groundAt(ccx + ccz * 0.4),
+              mood: cr.range(0.35, 0.6),
+              ph: cr.range(0, 6.28),
+              shape: cr.int(0, 3),
+              node: null,
+              done: false
+            });
+          }
+
+          // --- Les surprises -------------------------------------------------
+          var events = [];
+          var er = makeRng(ci * 3313 + 5);
+          if (er.next() < 0.45) {
+            var rx = er.range(x0 + 50, x0 + CHUNK - 50);
+            var rz = er.range(-30, 90);
+            events.push({
+              kind: 'resonance',
+              x: rx,
+              z: rz,
+              y: groundAt(rx + rz * 0.4),
+              seed: er.int(0, 9999),
+              fired: 0
+            });
+          }
+          if (er.next() < 0.3) {
+            events.push({
+              kind: 'passage',
+              x: er.range(x0, x0 + CHUNK),
+              z: er.range(340, 620),
+              y: er.range(30, 90),
+              fired: 0,
+              t: 0
+            });
+          }
+          if (er.next() < 0.2) {
+            events.push({
+              kind: 'pluie',
+              x: er.range(x0 + 60, x0 + CHUNK - 60),
+              z: er.range(-20, 70),
+              fired: 0,
+              drops: []
+            });
+          }
+
+          back.sort(byDepth);
+          mid.sort(byDepth);
+          fore.sort(byDepth);
+          return { back: back, mid: mid, fore: fore, dust: dust, motes: motes, notes: notes, creatures: creatures, events: events };
+        }
+
+        function byDepth(a, b) {
+          return b.z - a.z;
+        }
+
+        function chunkAt(ci) {
+          var c = chunks.get(ci);
+          if (!c) {
+            c = buildChunk(ci);
+            chunks.set(ci, c);
+          }
+          return c;
+        }
+
+        /* --------------------------------------------------------- état */
+        var cam = { x: 0, drift: 0 };
+        var hero = { x: 0, z: 0, vx: 0, vz: 0, face: 1, step: 0, bob: 0, prevX: 0 };
+        var steps = 0;
+        var fragments = []; // les morceaux de phrase donnés par les créatures
+        var region = 0;
+        var nearCreature = null;
+        var focusZ = 0;
+        var focusTarget = 0;
+        var focusHold = 0; // secondes pendant lesquelles une curiosité garde le point
+        var time = 0;
+        var held = null; // point visé par le doigt / la souris, en pixels canvas
+        var keys = Object.create(null);
+        var interacted = false;
+
+        function project(gx, gy, gz) {
+          var k = F / (F + gz);
+          return {
+            k: k,
+            sx: W * 0.5 + (gx - cam.x + cam.drift) * k * unit,
+            sy: horizonY + (CAM_H - gy) * k * unit
+          };
+        }
+
+        var BUCKETS = 10;
+        var inkStyles = [];
+        var queues = [];
+        (function () {
+          for (var i = 0; i < BUCKETS; i++) {
+            inkStyles.push('rgba(18,18,20,' + ((i + 1) / BUCKETS).toFixed(2) + ')');
+            queues.push([]);
+          }
+        })();
+
+        function flushCrisp() {
+          for (var b = 0; b < BUCKETS; b++) {
+            var q = queues[b];
+            if (q.length === 0) continue;
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = inkStyles[b];
+            for (var i = 0; i < q.length; i += 3) ctx.fillRect(q[i], q[i + 1], q[i + 2], q[i + 2]);
+            q.length = 0;
+          }
+        }
+
+        function drawGrain(g, redTint, alphaBoost) {
+          var k = F / (F + g.z);
+          if (k <= 0.03) return;
+          var sx = W * 0.5 + (g.x - cam.x + cam.drift) * k * unit;
+          if (sx < -80 || sx > W + 80) return;
+          var sy = horizonY + (CAM_H - g.y) * k * unit;
+          var size = g.s * k * unit;
+          var coc = Math.abs(g.z - focusZ) * k * APERTURE * unit;
+          var alpha = g.a * (alphaBoost || 1);
+
+          if (coc < 1.1) {
+            var ps = Math.max(1, Math.round(size));
+            if (redTint) {
+              ctx.globalAlpha = Math.min(1, alpha);
+              ctx.fillStyle = RED;
+              ctx.fillRect(Math.round(sx), Math.round(sy), ps, ps);
+            } else {
+              var b = Math.min(BUCKETS - 1, Math.max(0, Math.round(alpha * BUCKETS) - 1));
+              var q = queues[b];
+              q.push(Math.round(sx), Math.round(sy), ps);
+            }
+            return;
+          }
+          // Hors netteté: la matière s'étale et perd d'autant en densité.
+          var radius = Math.min(72, size * 0.5 + coc);
+          var spread = (size * size) / (radius * radius * 3.1);
+          var out = Math.min(1, alpha * Math.max(0.05, spread * 2.4));
+          if (out < 0.015) return; // invisible: ne pas payer le dessin
+          ctx.globalAlpha = out;
+          var sprite = discFor(radius, redTint);
+          var d = radius * 2;
+          ctx.drawImage(sprite, sx - radius, sy - radius, d, d);
+        }
+
+        /* ------------------------------------------------- la créature */
+        // Trois grains de large: assez pour une silhouette, pas assez pour
+        // un personnage. C'est l'échelle qui raconte, pas le dessin.
+        var GAIT = [
+          ['.#.', '###', '#.#'],
+          ['.#.', '###', '.##'],
+          ['.#.', '###', '#.#'],
+          ['.#.', '###', '##.']
+        ];
+
+        function heroGround() {
+          return groundAt(hero.x + hero.z * 0.4);
+        }
+
+        function drawHero() {
+          var moving = Math.abs(hero.vx) + Math.abs(hero.vz) > 5;
+          var frame = moving ? GAIT[Math.floor(hero.step) % GAIT.length] : GAIT[0];
+          var ground = heroGround();
+          var hk = F / (F + hero.z);
+          var baseY = ground + GRAIN * 3 + hero.bob; // 3 grains de haut
+          var p = project(hero.x, baseY, hero.z);
+
+          var cell = GRAIN * unit * hk;
+
+          // Ombre portée: un disque doux, posé au sol.
+          ctx.globalAlpha = 0.3;
+          ctx.drawImage(
+            discFor(9, false),
+            p.sx - cell * 2.6,
+            horizonY + (CAM_H - ground) * hk * unit - cell * 0.9,
+            cell * 5.2,
+            cell * 1.9
+          );
+
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = INK;
+          var side = Math.max(2, Math.round(cell * 0.84));
+          for (var row = 0; row < frame.length; row++) {
+            for (var col = 0; col < 3; col++) {
+              if (frame[row][col] !== '#') continue;
+              var gx = Math.round(p.sx + (col - 1) * cell * hero.face - side / 2);
+              var gy = Math.round(p.sy + row * cell);
+              ctx.fillRect(gx, gy, side, side);
+            }
+          }
+        }
+
+        /* --------------------------------------------------- la curiosité
+         * Le rouge n'annonce pas un danger: il appelle. Il pulse doucement,
+         * s'ouvre quand on s'approche, puis s'élève et s'en va.
+         */
+        function updateMote(m, dt) {
+          m.ph += dt * 0.9;
+          var d = Math.abs(m.x - hero.x);
+          if (!m.found && d < 46) {
+            m.found = 1;
+            focusTarget = m.z;
+            focusHold = 2.4;
+            Sound.note('bell', 7, 0.2);
+            Sound.note('bell', 12, 0.16, 0.18);
+          }
+          if (m.found) {
+            m.found += dt * 0.55;
+            if (m.found > 2.2 && !m.gone) {
+              m.gone = 1;
+            }
+          }
+          if (m.gone) {
+            m.gone += dt * 0.5;
+            m.y += dt * 16;
+            m.x += dt * 5;
+            if (m.gone > 2.4) focusHold = 0;
+          }
+          if (m.found && m.found < 2.2) {
+            focusTarget = m.z;
+            focusHold = Math.max(focusHold, 0.3);
+          }
+        }
+
+        function drawMote(m) {
+          if (m.gone > 2.6) return;
+          var k = F / (F + m.z);
+          var sx = W * 0.5 + (m.x - cam.x + cam.drift) * k * unit;
+          if (sx < -90 || sx > W + 90) return;
+          var sy = horizonY + (CAM_H - m.y) * k * unit;
+          var pulse = 0.5 + 0.5 * Math.sin(m.ph);
+          var bloom = m.found ? Math.min(1, m.found) : 0;
+          var fade = m.gone ? Math.max(0, 1 - (m.gone - 1) / 1.6) : 1;
+          var coc = Math.abs(m.z - focusZ) * k * APERTURE * unit;
+
+          // Halo: la seule lumière colorée de la scène.
+          ctx.globalAlpha = (0.1 + pulse * 0.1 + bloom * 0.3) * fade;
+          var halo = (12 + pulse * 5 + bloom * 26 + coc * 2) * k * unit;
+          ctx.drawImage(discFor(halo, true), sx - halo, sy - halo, halo * 2, halo * 2);
+
+          // Le grain lui-même, net s'il est dans le plan.
+          drawGrain({ x: m.x, y: m.y, z: m.z, s: GRAIN - 1 + bloom * 1.5, a: fade }, true, 1);
+
+          // Éclats qui s'échappent quand elle s'ouvre.
+          if (bloom > 0.15) {
+            for (var i = 0; i < 5; i++) {
+              var a = m.ph * 0.6 + (i / 5) * Math.PI * 2;
+              var rr = (10 + bloom * 26) * k;
+              ctx.globalAlpha = 0.5 * bloom * fade;
+              ctx.fillStyle = RED;
+              ctx.fillRect(Math.round(sx + Math.cos(a) * rr), Math.round(sy + Math.sin(a) * rr * 0.7), 2, 2);
+            }
+          }
+        }
+
+        /* ------------------------------------------------------- rendu */
+        var noiseTile = null;
+        var bgLayer = null;
+        var vigLayer = null;
+        var noiseLayer = null;
+
+        function buildStatics() {
+          bgLayer = document.createElement('canvas');
+          bgLayer.width = W;
+          bgLayer.height = H;
+          var bc = bgLayer.getContext('2d');
+          var g = bc.createLinearGradient(0, 0, 0, H);
+          g.addColorStop(0, '#f3f2f0');
+          g.addColorStop(0.42, '#e7e6e4');
+          g.addColorStop(0.72, '#dcdbd9');
+          g.addColorStop(1, '#cfcecd');
+          bc.fillStyle = g;
+          bc.fillRect(0, 0, W, H);
+
+          vigLayer = document.createElement('canvas');
+          vigLayer.width = W;
+          vigLayer.height = H;
+          var vc = vigLayer.getContext('2d');
+          var v = vc.createRadialGradient(W / 2, H * 0.5, Math.min(W, H) * 0.32, W / 2, H * 0.5, Math.max(W, H) * 0.78);
+          v.addColorStop(0, 'rgba(0,0,0,0)');
+          v.addColorStop(1, 'rgba(20,20,22,0.3)');
+          vc.fillStyle = v;
+          vc.fillRect(0, 0, W, H);
+
+          if (noiseTile) {
+            noiseLayer = document.createElement('canvas');
+            noiseLayer.width = W + 130;
+            noiseLayer.height = H + 130;
+            var nc = noiseLayer.getContext('2d');
+            nc.fillStyle = nc.createPattern(noiseTile, 'repeat');
+            nc.fillRect(0, 0, noiseLayer.width, noiseLayer.height);
+          }
+        }
+
+        function buildNoise() {
+          var n = 128;
+          var cv = document.createElement('canvas');
+          cv.width = n;
+          cv.height = n;
+          var c = cv.getContext('2d');
+          var img = c.createImageData(n, n);
+          for (var i = 0; i < img.data.length; i += 4) {
+            var v = 128 + (Math.random() * 2 - 1) * 60;
+            img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+            img.data[i + 3] = 26;
+          }
+          c.putImageData(img, 0, 0);
+          noiseTile = cv;
+        }
+
+        function backdrop() {
+          ctx.globalAlpha = 1;
+          if (bgLayer) ctx.drawImage(bgLayer, 0, 0);
+
+          // Lueur rouge très lointaine: une promesse, hors de portée.
+          var glowX = W * 0.5 + (2400 - cam.x) * (F / (F + 900));
+          if (glowX > -160 && glowX < W + 160) {
+            ctx.globalAlpha = 0.22;
+            ctx.drawImage(discFor(56, true), glowX - 70, horizonY - 28, 140, 140);
+          }
+        }
+
+        function postProcess() {
+          ctx.globalAlpha = 1;
+          // Grain argentique: la même nappe, décalée à chaque image.
+          if (noiseLayer) {
+            var ox = reduceMotion ? 0 : Math.floor(Math.random() * 128);
+            var oy = reduceMotion ? 0 : Math.floor(Math.random() * 128);
+            ctx.drawImage(noiseLayer, -ox, -oy);
+          }
+          // Vignette: l'objectif n'éclaire pas jusqu'aux bords.
+          if (vigLayer) ctx.drawImage(vigLayer, 0, 0);
+        }
+
+        function visibleChunks() {
+          var span = (W * 0.5 + 420) / 1;
+          var from = Math.floor((cam.x - span) / CHUNK);
+          var to = Math.floor((cam.x + span) / CHUNK);
+          var out = [];
+          for (var i = from - 1; i <= to + 1; i++) out.push(chunkAt(i));
+          return out;
+        }
+
+        function render(dt) {
+          backdrop();
+          var list = visibleChunks();
+          drawPassages(list);
+          var i, j, c;
+
+          for (i = 0; i < list.length; i++) {
+            c = list[i];
+            for (j = 0; j < c.back.length; j++) drawGrain(c.back[j], false, 1);
+          }
+          flushCrisp();
+          for (i = 0; i < list.length; i++) {
+            c = list[i];
+            for (j = 0; j < c.mid.length; j++) drawGrain(c.mid[j], false, 1);
+          }
+          flushCrisp();
+
+          // Poussière: elle dérive, elle respire.
+          for (i = 0; i < list.length; i++) {
+            c = list[i];
+            for (j = 0; j < c.dust.length; j++) {
+              var d = c.dust[j];
+              d.ph += dt * d.sp;
+              drawGrain(
+                { x: d.x + Math.sin(d.ph) * 9, y: d.y + Math.cos(d.ph * 0.7) * 6, z: d.z, s: d.s, a: d.a },
+                false,
+                1
+              );
+            }
+          }
+
+          flushCrisp();
+          drawNotes(list);
+          drawEvents(list);
+          flushCrisp();
+          drawCreatures(list);
+          drawHero();
+
+          for (i = 0; i < list.length; i++) {
+            c = list[i];
+            for (j = 0; j < c.motes.length; j++) {
+              updateMote(c.motes[j], dt);
+              drawMote(c.motes[j]);
+            }
+          }
+
+          // Le premier plan passe devant tout le reste.
+          for (i = 0; i < list.length; i++) {
+            c = list[i];
+            for (j = 0; j < c.fore.length; j++) drawGrain(c.fore[j], false, 1);
+          }
+
+          flushCrisp();
+          postProcess();
+        }
+
+        /* ------------------------------------------------------ logique */
+        function update(dt) {
+          time += dt;
+          hero.prevX = hero.x;
+
+          var dirX = 0;
+          var dirZ = 0;
+          if (keys['ArrowLeft'] || keys['KeyA'] || keys['KeyQ']) dirX -= 1;
+          if (keys['ArrowRight'] || keys['KeyD']) dirX += 1;
+          if (keys['ArrowUp'] || keys['KeyW'] || keys['KeyZ']) dirZ += 1; // s'enfoncer
+          if (keys['ArrowDown'] || keys['KeyS']) dirZ -= 1; // revenir vers l'objectif
+          if (held && !talkOpen) {
+            // On marche vers le doigt: horizontalement, et en profondeur selon
+            // qu'il est au-dessus ou au-dessous de la créature.
+            var hp = project(hero.x, heroGround() + GRAIN * 2, hero.z);
+            var dx = held.x - hp.sx;
+            var dy = held.y - hp.sy;
+            if (Math.abs(dx) > 14) dirX = dx > 0 ? 1 : -1;
+            if (Math.abs(dy) > 26) dirZ = dy < 0 ? 1 : -1;
+          }
+          if (talkOpen) {
+            dirX = 0;
+            dirZ = 0;
+          }
+
+          var speed = 52;
+          hero.vx += (dirX * speed - hero.vx) * Math.min(1, dt * 9);
+          hero.vz += (dirZ * speed * 0.62 - hero.vz) * Math.min(1, dt * 7);
+          hero.x += hero.vx * dt;
+          hero.z = Math.max(-80, Math.min(230, hero.z + hero.vz * dt));
+          if (Math.abs(hero.vx) + Math.abs(hero.vz) > 5) {
+            if (Math.abs(hero.vx) > 4) hero.face = hero.vx > 0 ? 1 : -1;
+            hero.step += dt * 9;
+            hero.bob = Math.sin(hero.step * Math.PI) > 0 ? 0 : 1;
+          } else {
+            hero.bob = Math.sin(time * 1.6) > 0.7 ? 1 : 0;
+          }
+
+          readScore();
+          updateRegion();
+          Sound.setDepth(hero.z);
+
+          cam.x += (hero.x - cam.x) * Math.min(1, dt * 2.4);
+          // Respiration de l'opérateur: infime, mais c'est elle qui fait
+          // croire à une caméra tenue au-dessus d'une maquette.
+          cam.drift = reduceMotion ? 0 : Math.sin(time * 0.53) * 2.4 + Math.sin(time * 1.31) * 0.9;
+
+          // La netteté suit la créature: c'est elle qui définit le plan, et
+          // s'enfoncer déplace donc tout le point de l'image.
+          if (talk && talk.creature) {
+            // Conversation: l'objectif fait le point sur elle, pas sur nous.
+            focusTarget = talk.creature.z;
+          } else if (!focusHold) {
+            focusTarget = hero.z;
+          }
+          focusHold = Math.max(0, focusHold - dt);
+          var breathe = reduceMotion ? 0 : Math.sin(time * 0.31) * 3.5;
+          focusZ += (focusTarget + breathe - focusZ) * Math.min(1, dt * 2.2);
+
+          // On ne garde que le monde proche en mémoire.
+          if (chunks.size > 14) {
+            var keep = Math.floor(cam.x / CHUNK);
+            chunks.forEach(function (_, key) {
+              if (Math.abs(key - keep) > 5) chunks.delete(key);
+            });
+          }
+        }
+
+        /* ------------------------------------------------------- l'histoire
+         * Elle ne s'écrit pas dans des cinématiques: elle se donne par
+         * morceaux, par des créatures qui demandent quelque chose avant de
+         * parler. Chaque morceau recueilli est un fragment de la phrase dont
+         * on s'est échappé.
+         */
+        var TALKS = [
+          {
+            who: 'le grain tremblant',
+            nodes: {
+              start: {
+                line: 'Tu marches et le sol chante. Tu sais que c\'est toi qui le fais chanter ?',
+                choices: [
+                  { text: 'Je ne savais pas.', to: 'humble' },
+                  { text: 'Je le savais.', to: 'fier' }
+                ]
+              },
+              humble: {
+                line: 'Alors tu es encore une note. Les notes ignorent qu\'elles sonnent.',
+                choices: [{ text: '…', to: 'ask' }]
+              },
+              fier: {
+                line: 'Prétentieux. Une note qui s\'écoute n\'avance plus.',
+                choices: [{ text: 'Je continuerai quand même.', to: 'ask' }]
+              },
+              ask: {
+                line: 'Je tremble depuis longtemps. Calme-moi, et je te rendrai ce que j\'ai gardé.',
+                ask: { type: 'caress', label: 'caressez-la' },
+                to: 'gift'
+              },
+              gift: {
+                line: 'Voilà. Trois sons qui t\'appartenaient. Ils étaient lourds à porter.',
+                gift: { name: 'le début', motif: [0, 3, 5] }
+              }
+            }
+          },
+          {
+            who: 'la chose immobile',
+            nodes: {
+              start: {
+                line: 'Personne ne passe par ici. Le fond avale tout. Tu viens du fond ?',
+                choices: [
+                  { text: 'Je viens de la surface.', to: 'surface' },
+                  { text: 'Je ne sais plus.', to: 'perdu' }
+                ]
+              },
+              surface: {
+                line: 'La surface. Ce mot existe encore. Fais-moi du bruit, que je me réveille.',
+                ask: { type: 'shake', label: 'secouez le téléphone' },
+                to: 'gift'
+              },
+              perdu: {
+                line: 'Bien. Les perdus entendent mieux. Remue-moi, je dors depuis trop longtemps.',
+                ask: { type: 'shake', label: 'secouez le téléphone' },
+                to: 'gift'
+              },
+              gift: {
+                line: 'Ha ! Je me souviens du milieu de ta phrase. Prends-le, il m\'encombrait.',
+                gift: { name: 'le milieu', motif: [7, 5, 3, 0] }
+              }
+            }
+          },
+          {
+            who: 'celle qui penche',
+            nodes: {
+              start: {
+                line: 'Tout ici tombe du même côté. Tu n\'as pas remarqué ?',
+                choices: [
+                  { text: 'Si. Depuis le début.', to: 'oui' },
+                  { text: 'Non. Montre-moi.', to: 'montre' }
+                ]
+              },
+              oui: {
+                line: 'Alors penche avec moi. On verra bien ce qui coule.',
+                ask: { type: 'tilt', label: 'penchez le téléphone' },
+                to: 'gift'
+              },
+              montre: {
+                line: 'Incline ton monde. Le mien est déjà de travers.',
+                ask: { type: 'tilt', label: 'penchez le téléphone' },
+                to: 'gift'
+              },
+              gift: {
+                line: 'Tiens. La fin, ou ce qui lui ressemble. Personne ne connaît vraiment la fin.',
+                gift: { name: 'la fin', motif: [12, 10, 7] }
+              }
+            }
+          }
+        ];
+
+        var talkOpen = false;
+        var talk = null; // { creature, script, node }
+        var pendingAsk = null; // { type, progress, done }
+
+        function openTalk(creature) {
+          if (talkOpen || creature.done) return;
+          Sound.unlock();
+          markInteracted();
+          talk = { creature: creature, script: TALKS[creature.shape % TALKS.length], node: 'start' };
+          talkOpen = true;
+          held = null;
+          hud.talk.classList.add('open');
+          renderTalk();
+        }
+
+        function closeTalk() {
+          talkOpen = false;
+          talk = null;
+          hud.talk.classList.remove('open');
+        }
+
+        function renderTalk() {
+          var node = talk.script.nodes[talk.node];
+          hud.who.textContent = talk.script.who;
+          hud.line.textContent = node.line;
+          hud.choices.innerHTML = '';
+
+          if (node.gift) {
+            // Le don: un motif qui devient une trace dans la phrase.
+            addChoice('Prendre', function () {
+              fragments.push(node.gift);
+              paintPhrase();
+              Sound.motif(node.gift.motif, 'bell', 0.17);
+              talk.creature.done = true;
+              talk.creature.mood = 0.15;
+              closeTalk();
+            });
+            return;
+          }
+          if (node.ask) {
+            addChoice('…', function () {
+              var target = node.to;
+              startAsk(node.ask, function () {
+                talk.node = target;
+                talkOpen = true;
+                hud.talk.classList.add('open');
+                renderTalk();
+              });
+            });
+            return;
+          }
+          for (var i = 0; i < node.choices.length; i++) {
+            (function (choice) {
+              addChoice(choice.text, function () {
+                talk.node = choice.to;
+                Sound.note('pluck', 3, 0.08);
+                renderTalk();
+              });
+            })(node.choices[i]);
+          }
+        }
+
+        function addChoice(label, fn) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = label;
+          b.addEventListener('click', fn);
+          hud.choices.appendChild(b);
+        }
+
+        /* ----------------------------------------------- gestes demandés
+         * Caresser, secouer, pencher. Sur un ordinateur, le frottement de la
+         * souris remplace les capteurs: la demande reste testable partout.
+         */
+        function startAsk(ask, done) {
+          hud.talk.classList.remove('open');
+          talkOpen = false;
+          pendingAsk = { type: ask.type, progress: 0, done: done };
+          hud.askLabel.textContent = ask.label + (ask.type === 'caress' ? '' : ' — ou frottez l\'écran');
+          hud.ask.classList.add('show');
+          hud.askBar.style.width = '0%';
+          if (ask.type !== 'caress') requestSensors();
+        }
+
+        function feedAsk(amount) {
+          if (!pendingAsk) return;
+          pendingAsk.progress = Math.min(1, pendingAsk.progress + amount);
+          hud.askBar.style.width = Math.round(pendingAsk.progress * 100) + '%';
+          if (talk && talk.creature) {
+            talk.creature.mood = Math.min(1, talk.creature.mood + amount * (pendingAsk.type === 'caress' ? -0.6 : 0.8));
+            if (pendingAsk.type === 'caress') talk.creature.mood = Math.max(0.05, talk.creature.mood);
+          }
+          if (Math.random() < amount * 6) Sound.note('bell', Math.floor(Math.random() * 5), 0.05);
+          if (pendingAsk.progress >= 1) {
+            var done = pendingAsk.done;
+            pendingAsk = null;
+            hud.ask.classList.remove('show');
+            Sound.note('bell', 7, 0.16);
+            setTimeout(done, 350);
+          }
+        }
+
+        var sensorsAsked = false;
+        function requestSensors() {
+          if (sensorsAsked) return;
+          sensorsAsked = true;
+          var wire = function () {
+            window.addEventListener('devicemotion', onMotion);
+            window.addEventListener('deviceorientation', onTilt);
+          };
+          try {
+            if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') {
+              DeviceMotionEvent.requestPermission().then(function (r) {
+                if (r === 'granted') wire();
+              })['catch'](function () {});
+              if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()['catch'](function () {});
+              }
+            } else {
+              wire();
+            }
+          } catch (e) {
+            /* capteurs indisponibles: le frottement suffit */
+          }
+        }
+
+        var lastShake = 0;
+        function onMotion(e) {
+          if (!pendingAsk || pendingAsk.type !== 'shake') return;
+          var a = e.accelerationIncludingGravity;
+          if (!a) return;
+          var mag = Math.abs(a.x || 0) + Math.abs(a.y || 0) + Math.abs(a.z || 0);
+          var d = Math.abs(mag - lastShake);
+          lastShake = mag;
+          if (d > 3) feedAsk(Math.min(0.09, d * 0.012));
+        }
+
+        function onTilt(e) {
+          if (!pendingAsk || pendingAsk.type !== 'tilt') return;
+          var g = Math.abs(e.gamma || 0);
+          if (g > 22) feedAsk(0.014);
+        }
+
+        function paintPhrase() {
+          hud.phrase.innerHTML = '';
+          for (var i = 0; i < 3; i++) {
+            var t = document.createElement('span');
+            t.className = 'tick' + (i < fragments.length ? ' on' : '');
+            hud.phrase.appendChild(t);
+          }
+        }
+
+        /* --------------------------------------------- lecture de la partition
+         * La créature est la tête de lecture. On regarde simplement quelles
+         * notes ont été traversées depuis la dernière image: vers la droite
+         * elles arrivent dans l'ordre, vers la gauche dans l'autre — la
+         * mélodie à l'envers sort toute seule de la géométrie.
+         */
+        function readScore() {
+          var a = hero.prevX;
+          var b = hero.x;
+          if (a === b) return;
+          var lo = Math.min(a, b);
+          var hi = Math.max(a, b);
+          var list = visibleChunks();
+          for (var i = 0; i < list.length; i++) {
+            var ns = list[i].notes;
+            for (var j = 0; j < ns.length; j++) {
+              var n = ns[j];
+              if (n.x < lo || n.x > hi) continue;
+              var dz = Math.abs(hero.z - n.z);
+              if (dz > 58) continue; // on ne joue que la bande qu'on longe
+              var vel = 0.035 + 0.1 * (1 - dz / 58);
+              Sound.note(n.kind, n.deg, vel);
+              n.lit = 1;
+              steps++;
+            }
+            var evs = list[i].events;
+            for (var e = 0; e < evs.length; e++) fireEvent(evs[e], lo, hi);
+          }
+        }
+
+        function updateRegion() {
+          var r = Math.floor(hero.x / REGION);
+          if (r === region) return;
+          region = r;
+          // Chaque mouvement a sa tonalité: le monde module en avançant.
+          var degrees = [0, -2, 3, 5, -4, 7];
+          var t = degrees[((r % degrees.length) + degrees.length) % degrees.length];
+          Sound.setTonic(t);
+          announce(REGION_NAMES[((r % REGION_NAMES.length) + REGION_NAMES.length) % REGION_NAMES.length]);
+          // Les morceaux de phrase déjà recueillis se rappellent à nous.
+          if (fragments.length) Sound.motif(fragments[fragments.length - 1].motif, 'bell', 0.16);
+        }
+
+        var REGION_NAMES = [
+          'le sillon',
+          'la halte',
+          'les cendres claires',
+          'le pli',
+          'la grande respiration',
+          'les restes du jour',
+          'le seuil'
+        ];
+
+        function announce(text) {
+          hud.region.textContent = text;
+          hud.region.classList.add('show');
+          clearTimeout(announce._t);
+          announce._t = setTimeout(function () {
+            hud.region.classList.remove('show');
+          }, 2600);
+        }
+
+        /* ------------------------------------------------------ surprises
+         * Trois phénomènes, chacun avec sa couleur sonore: un bouquet qui
+         * résonne au passage, une masse immense qui traverse le fond, une
+         * pluie de curiosités qui sonne en touchant le sol.
+         */
+        function fireEvent(ev, lo, hi) {
+          if (ev.fired) return;
+          if (ev.kind === 'resonance') {
+            if (ev.x < lo || ev.x > hi || Math.abs(hero.z - ev.z) > 85) return;
+            ev.fired = 1.6;
+            var rr = makeRng(ev.seed);
+            for (var i = 0; i < 6; i++) Sound.note('bell', rr.int(0, 8), 0.11, i * 0.085);
+          } else if (ev.kind === 'pluie') {
+            if (ev.x < lo || ev.x > hi) return;
+            ev.fired = 1;
+            for (var d = 0; d < 15; d++) {
+              ev.drops.push({
+                x: ev.x + (Math.random() * 170 - 85),
+                y: 150 + Math.random() * 140,
+                z: ev.z + (Math.random() * 70 - 35),
+                v: 16 + Math.random() * 30,
+                landed: 0
+              });
+            }
+          }
+        }
+
+        function updateEvents(dt) {
+          var list = visibleChunks();
+          for (var i = 0; i < list.length; i++) {
+            var evs = list[i].events;
+            for (var e = 0; e < evs.length; e++) {
+              var ev = evs[e];
+              if (ev.kind === 'passage') {
+                if (!ev.fired && Math.abs(hero.x - ev.x) < 300) {
+                  ev.fired = 1;
+                  Sound.note('bass', -5, 0.2);
+                  Sound.note('bass', -12, 0.16, 0.5);
+                }
+                if (ev.fired) ev.t += dt;
+              } else if (ev.kind === 'resonance') {
+                if (ev.fired > 0) ev.fired = Math.max(0, ev.fired - dt);
+              } else if (ev.kind === 'pluie') {
+                for (var d = 0; d < ev.drops.length; d++) {
+                  var dr = ev.drops[d];
+                  if (dr.landed) {
+                    dr.landed += dt;
+                    continue;
+                  }
+                  dr.y -= dr.v * dt;
+                  if (dr.y <= groundAt(dr.x + dr.z * 0.4)) {
+                    dr.y = groundAt(dr.x + dr.z * 0.4);
+                    dr.landed = 0.001;
+                    Sound.note('bell', Math.floor(Math.random() * 5) + 5, 0.07);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        function drawPassages(list) {
+          for (var i = 0; i < list.length; i++) {
+            var evs = list[i].events;
+            for (var e = 0; e < evs.length; e++) {
+              var ev = evs[e];
+              if (ev.kind !== 'passage' || !ev.fired || ev.t > 11) continue;
+              var k = F / (F + ev.z);
+              var travel = -260 + ev.t * 58;
+              var sx = W * 0.5 + (ev.x + travel - cam.x + cam.drift) * k * unit;
+              var sy = horizonY + (CAM_H - ev.y) * k * unit;
+              var fade = Math.min(1, ev.t * 0.5) * Math.max(0, 1 - (ev.t - 8) / 3);
+              var pr = makeRng(Math.round(ev.x) * 31 + 7);
+              for (var b = 0; b < 7; b++) {
+                var rr = Math.min(70, (30 + pr.range(0, 26)) * k * unit * 3);
+                var ox = pr.range(-1.1, 1.1) * rr;
+                var oy = pr.range(-0.5, 0.35) * rr;
+                ctx.globalAlpha = 0.1 * fade;
+                ctx.drawImage(discFor(rr, false), sx + ox - rr, sy + oy - rr * 0.6, rr * 2, rr * 1.25);
+              }
+            }
+          }
+        }
+
+        function drawEvents(list) {
+          for (var i = 0; i < list.length; i++) {
+            var evs = list[i].events;
+            for (var e = 0; e < evs.length; e++) {
+              var ev = evs[e];
+              if (ev.kind === 'resonance') {
+                var rr = makeRng(ev.seed);
+                var lit = ev.fired > 0 ? ev.fired / 1.6 : 0;
+                for (var t = 0; t < 9; t++) {
+                  var tx = ev.x + rr.range(-26, 26);
+                  var tz = ev.z + rr.range(-12, 12);
+                  var len = rr.int(8, 20);
+                  var kf = F / (F + tz);
+                  var base = groundAt(tx + tz * 0.4);
+                  for (var q = 0; q < len; q++) {
+                    drawGrain(
+                      {
+                        x: tx + Math.sin(time * 1.6 + t + q * 0.2) * (q * 0.16) / kf,
+                        y: base + (q * (GRAIN - 0.6)) / kf,
+                        z: tz,
+                        s: (GRAIN - 1.5) / kf,
+                        a: 0.3 + lit * 0.55 - (q / len) * 0.15
+                      },
+                      lit > 0.4 && q > len - 4,
+                      1
+                    );
+                  }
+                }
+              } else if (ev.kind === 'pluie') {
+                for (var d = 0; d < ev.drops.length; d++) {
+                  var dr = ev.drops[d];
+                  var fade = dr.landed ? Math.max(0, 1 - dr.landed / 3) : 1;
+                  if (fade <= 0) continue;
+                  drawGrain({ x: dr.x, y: dr.y, z: dr.z, s: GRAIN - 2, a: fade }, true, 1);
+                }
+              }
+            }
+          }
+        }
+
+        /* --------------------------------------------- notes et créatures */
+        function drawNotes(list) {
+          for (var i = 0; i < list.length; i++) {
+            var ns = list[i].notes;
+            for (var j = 0; j < ns.length; j++) {
+              var n = ns[j];
+              if (n.lit > 0) n.lit = Math.max(0, n.lit - 0.02);
+              var kf = F / (F + n.z);
+              var base = 0.16 + (n.kind === 'bass' ? 0.06 : 0);
+              // Une note est un petit bâton planté: on voit la partition.
+              for (var q = 0; q < (n.kind === 'bell' ? 3 : 2); q++) {
+                drawGrain(
+                  {
+                    x: n.x,
+                    y: n.y + (q * (GRAIN - 1)) / kf,
+                    z: n.z,
+                    s: (GRAIN - 2) / kf,
+                    a: base + n.lit * 0.75
+                  },
+                  false,
+                  1
+                );
+              }
+              if (n.lit > 0.05) {
+                var p = project(n.x, n.y + 6, n.z);
+                var rad = (6 + (1 - n.lit) * 20) * kf * unit;
+                ctx.globalAlpha = n.lit * 0.5;
+                ctx.drawImage(discFor(Math.min(70, rad), false), p.sx - rad, p.sy - rad, rad * 2, rad * 2);
+              }
+            }
+          }
+        }
+
+        var CREATURE_SHAPES = [
+          ['.#.', '###', '#.#'],
+          ['#.#', '###', '.#.'],
+          ['.##', '##.', '.#.'],
+          ['#.#', '.#.', '#.#']
+        ];
+
+        function drawCreatures(list) {
+          for (var i = 0; i < list.length; i++) {
+            var cs = list[i].creatures;
+            for (var j = 0; j < cs.length; j++) {
+              var c = cs[j];
+              c.ph += 0.016 * (0.6 + c.mood * 3);
+              var kf = F / (F + c.z);
+              var cell = GRAIN * unit * kf;
+              var jitter = c.mood * 1.6;
+              var p = project(c.x, c.y + GRAIN * 3, c.z);
+              var shape = CREATURE_SHAPES[c.shape % CREATURE_SHAPES.length];
+              var breathe = Math.sin(c.ph) > 0.6 ? 1 : 0;
+
+              ctx.globalAlpha = 0.24;
+              ctx.drawImage(
+                discFor(9, false),
+                p.sx - cell * 2.4,
+                horizonY + (CAM_H - c.y) * kf * unit - cell * 0.8,
+                cell * 4.8,
+                cell * 1.7
+              );
+
+              ctx.globalAlpha = 0.92;
+              ctx.fillStyle = INK;
+              var side = Math.max(2, Math.round(cell * 0.84));
+              for (var row = 0; row < shape.length; row++) {
+                for (var col = 0; col < 3; col++) {
+                  if (shape[row][col] !== '#') continue;
+                  var ox = Math.sin(c.ph * 7 + row) * jitter;
+                  var gx = Math.round(p.sx + (col - 1) * cell + ox - side / 2);
+                  var gy = Math.round(p.sy + (row + breathe * 0.12) * cell);
+                  ctx.fillRect(gx, gy, side, side);
+                }
+              }
+
+              // La marque rouge: elle veut parler. Elle s'éteint une fois dit.
+              if (!c.done) {
+                var pulse = 0.55 + 0.45 * Math.sin(time * 2.2 + c.ph);
+                var rad = (5 + pulse * 4) * kf * unit;
+                ctx.globalAlpha = 0.35 + pulse * 0.3;
+                ctx.drawImage(discFor(rad, true), p.sx - rad, p.sy - cell * 2.4 - rad, rad * 2, rad * 2);
+              }
+            }
+          }
+        }
+
+        function updateCreatures() {
+          nearCreature = null;
+          var list = visibleChunks();
+          var best = 999;
+          for (var i = 0; i < list.length; i++) {
+            var cs = list[i].creatures;
+            for (var j = 0; j < cs.length; j++) {
+              var c = cs[j];
+              if (c.done) continue;
+              var d = Math.abs(c.x - hero.x) + Math.abs(c.z - hero.z) * 0.6;
+              if (d < best) {
+                best = d;
+                nearCreature = c;
+              }
+            }
+          }
+          // Assez près: elle engage la conversation d'elle-même.
+          if (nearCreature && best < 24 && !talkOpen && !pendingAsk) openTalk(nearCreature);
+        }
+
+        /* ------------------------------------------------------- entrées */
+        function markInteracted() {
+          if (interacted) return;
+          interacted = true;
+          caption.classList.add('gone');
+        }
+
+        var lastPointer = { x: 0, y: 0 };
+
+        function localPoint(e) {
+          var r = canvas.getBoundingClientRect();
+          return { x: e.clientX - r.left, y: e.clientY - r.top };
+        }
+
+        stage.addEventListener('pointerdown', function (e) {
+          markInteracted();
+          Sound.unlock();
+          if (e.target && e.target.tagName === 'BUTTON') return;
+          var pt = localPoint(e);
+          held = pt;
+          lastPointer = pt;
+          try {
+            stage.setPointerCapture(e.pointerId);
+          } catch (err) {
+            /* certains navigateurs refusent la capture: sans importance */
+          }
+        });
+        stage.addEventListener('pointermove', function (e) {
+          var pt = localPoint(e);
+          if (pendingAsk) {
+            // Frotter l'écran vaut caresse — et remplace les capteurs sur un
+            // ordinateur, pour que la demande reste franchissable partout.
+            var d = Math.hypot(pt.x - lastPointer.x, pt.y - lastPointer.y);
+            if (d > 1) feedAsk(Math.min(0.05, d * 0.0018));
+          }
+          lastPointer = pt;
+          if (held) held = pt;
+        });
+        function release() {
+          held = null;
+        }
+        stage.addEventListener('pointerup', release);
+        stage.addEventListener('pointercancel', release);
+        stage.addEventListener('pointerleave', release);
+
+        window.addEventListener('keydown', function (e) {
+          keys[e.code] = true;
+          Sound.unlock();
+          if (e.code.indexOf('Arrow') === 0) e.preventDefault();
+          markInteracted();
+        });
+        window.addEventListener('keyup', function (e) {
+          keys[e.code] = false;
+        });
+
+        window.addEventListener('resize', resize);
+        window.addEventListener('orientationchange', function () {
+          setTimeout(resize, 120);
+        });
+        if (typeof ResizeObserver !== 'undefined') new ResizeObserver(resize).observe(stage);
+
+        /* -------------------------------------------------------- départ */
+        var last = 0;
+        var fpsSamples = [];
+        function loop(now) {
+          var dt = Math.min(0.05, (now - last) / 1000 || 0);
+          last = now;
+          if (dt > 0) fpsSamples.push(1 / dt);
+          if (fpsSamples.length > 120) fpsSamples.shift();
+          update(dt);
+          updateEvents(dt);
+          updateCreatures();
+          render(dt);
+          requestAnimationFrame(loop);
+        }
+
+        resize();
+        buildDiscs();
+        buildNoise();
+        hero.x = 40;
+        cam.x = 40;
+        paintPhrase();
+        window.__grain = {
+          fps: function () {
+            var s = 0;
+            for (var i = 0; i < fpsSamples.length; i++) s += fpsSamples[i];
+            return Math.round(s / Math.max(1, fpsSamples.length));
+          },
+          state: function () {
+            return {
+              heroX: Math.round(hero.x),
+              heroZ: Math.round(hero.z),
+              focusZ: Math.round(focusZ),
+              steps: steps,
+              fragments: fragments.length,
+              region: region,
+              talk: talkOpen ? talk.script.who + ':' + talk.node : null,
+              ask: pendingAsk ? pendingAsk.type + ':' + pendingAsk.progress.toFixed(2) : null,
+              near: nearCreature ? Math.round(Math.abs(nearCreature.x - hero.x)) : -1,
+              audio: Sound.ready(),
+              chunks: chunks.size
+            };
+          },
+          dive: function (dz) {
+            keys['ArrowUp'] = dz > 0;
+            keys['ArrowDown'] = dz < 0;
+          },
+          goToCreature: function () {
+            var list = visibleChunks();
+            for (var i = 0; i < list.length; i++) {
+              for (var j = 0; j < list[i].creatures.length; j++) {
+                var c = list[i].creatures[j];
+                if (c.done) continue;
+                hero.x = c.x - 12;
+                hero.z = c.z;
+                cam.x = hero.x;
+                return Math.round(c.x);
+              }
+            }
+            return null;
+          },
+          choose: function (i) {
+            var b = hud.choices.getElementsByTagName('button');
+            if (b[i || 0]) b[i || 0].click();
+            return b.length;
+          },
+          rub: function (n) {
+            for (var i = 0; i < (n || 40); i++) feedAsk(0.05);
+          },
+          walk: function (dir) {
+            keys['ArrowRight'] = dir > 0;
+            keys['ArrowLeft'] = dir < 0;
+          }
+        };
+        last = performance.now();
+        requestAnimationFrame(loop);
+      })();
+    </script>
+  </body>
+</html>
