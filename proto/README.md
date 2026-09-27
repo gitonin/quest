@@ -54,9 +54,19 @@ système de jeu.
 
 ### Le principe : le monde est la partition
 
-Il n'y a pas de piste musicale. Des notes sont **posées dans le décor** — de
-petits bâtons plantés dans le sol, visibles — et la créature est la tête de
-lecture. Avancer lit la phrase ; reculer la joue à l'envers, non par un tour
+Il n'y a pas de piste musicale. Les notes sont des **objets posés au sol**,
+clairsemés dans tout le décor, et la créature est la tête de lecture. Chaque
+voix a sa forme : un **clou** pour la mélodie, un **anneau** pour les cloches,
+une **dalle** pour les basses. Chacun porte une ombre courte — sans elle il
+flotterait au lieu d'être posé.
+
+Marcher dessus le fait **sursauter**, une onde s'ouvre au sol, et sa tête
+**reste allumée** : on voit d'un coup d'œil où l'on est déjà passé, et on peut
+y revenir. Les notes jouées sont mémorisées hors des morceaux de monde
+chargés, donc elles restent allumées même après un aller-retour.
+
+Un **fil** très fin relie les notes allumées dans l'ordre du terrain : la
+partition se dessine à mesure qu'on la joue. Avancer lit la phrase ; reculer la joue à l'envers, non par un tour
 de passe-passe mais parce qu'on recroise les mêmes notes dans l'autre sens.
 S'arrêter fait silence. La vitesse fait le tempo.
 
@@ -109,7 +119,9 @@ et un seul mot s'écrit au milieu de l'image.
 | VI | verre | aigu, cloches, bleu froid |
 | VII | seuil | presque silencieux, rouge |
 
-Le bouton **partition** ouvre la liste des actes et permet d'y sauter.
+Le bouton **partition** ouvre la liste des actes et permet d'y sauter. Les
+deux boutons sont **en haut à droite** : le bas de l'écran appartient aux
+dialogues.
 
 ### La caméra
 
@@ -133,11 +145,24 @@ volume, donc elles se floutent comme tout. Chaque impact ouvre une **onde** —
 un anneau de grains qui s'écarte au sol — et fait sonner une note très basse
 en niveau. Il pleut de la musique.
 
-### Les voix
+### Les voix et le numérique
 
-Chaque réplique déclenche une **voix** : une poignée d'impulsions filtrées en
-bande étroite, à très faible niveau. Pas des mots — un grain de parole qui ne
-couvre jamais la musique.
+Chaque espèce a **sa** voix : bande passante, timbre, débit et hauteur propres
+— de la sinusoïde sourde du veilleur au bip carré de la minuscule. Pas des
+mots, un grain de parole. (`VOICES = false` en haut du script les coupe.)
+
+S'y ajoutent des sons franchement numériques : une impulsion carrée très
+courte à chaque note activée — le bruit d'attache, qui lie ce qu'on voit à ce
+qu'on entend — et deux marches carrées pour les boutons et les choix.
+
+### L'orage
+
+Un éclair n'est pas un fondu : c'est une **salve** de trois à six impulsions
+inégales, la première à pleine puissance. Le craquement part tout de suite
+(bruit passe-haut), le grondement arrive avec un retard proportionnel à la
+distance (bruit passe-bas dont la coupure descend pendant près de trois
+secondes). `prefers-reduced-motion` ramène la salve à une seule impulsion
+douce.
 
 ### Commandes
 
