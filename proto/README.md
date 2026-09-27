@@ -92,11 +92,63 @@ demande reste franchissable partout.
 - **le passage** : une masse immense qui dérive au fond, sur un grave tenu ;
 - **la pluie** : des curiosités rouges qui tombent et sonnent en touchant le sol.
 
+### Les tableaux
+
+Le voyage est découpé en actes de 2600 pas. Chacun a son papier, son encre,
+sa teinte vive, son **rythme** (l'écart entre deux notes), son **mode**, sa
+tonique et sa météo. On n'y entre pas par une porte : on y entre en marchant,
+et un seul mot s'écrit au milieu de l'image.
+
+| | mot | caractère |
+|---|---|---|
+| I | sillon | clair, large, rouge |
+| II | duvet | plus dense, majeur, vert-de-gris |
+| III | averse | pluie, ondes au sol, cyan |
+| IV | **nuit** | papier noir, encre claire, vent, orage, éclairs et tonnerre |
+| V | cendre | rythme nerveux, cuivre |
+| VI | verre | aigu, cloches, bleu froid |
+| VII | seuil | presque silencieux, rouge |
+
+Le bouton **partition** ouvre la liste des actes et permet d'y sauter.
+
+### La caméra
+
+Elle suit la créature **en profondeur autant qu'en largeur** : s'enfoncer
+rapproche tout le fond au lieu de le rétrécir, et c'est ce déplacement qui
+donne la sensation d'un objectif qui avance dans la matière.
+
+Le bouton **◉** fait tourner trois vues, toutes passées par la même fonction
+de projection (`mapPoint`) :
+
+- **latérale** — la vue principale, le diorama filmé de côté ;
+- **dessus** — la profondeur s'étale verticalement, la bande nette traverse
+  l'image : c'est exactement la photo aérienne de référence ;
+- **face** — on regarde le long de la marche, les plans se rangent en
+  couloir. Vue contemplative : le tri en profondeur y est approximatif.
+
+### La pluie
+
+Les gouttes sont faites des mêmes grains que le reste et tombent dans le même
+volume, donc elles se floutent comme tout. Chaque impact ouvre une **onde** —
+un anneau de grains qui s'écarte au sol — et fait sonner une note très basse
+en niveau. Il pleut de la musique.
+
+### Les voix
+
+Chaque réplique déclenche une **voix** : une poignée d'impulsions filtrées en
+bande étroite, à très faible niveau. Pas des mots — un grain de parole qui ne
+couvre jamais la musique.
+
 ### Commandes
 
 Glisser pour marcher ; le doigt au-dessus de la créature l'enfonce dans la
 profondeur, en dessous la ramène vers l'objectif. Flèches au clavier. Les
-créatures engagent la conversation d'elles-mêmes quand on s'approche.
+créatures engagent la conversation d'elles-mêmes quand on s'approche — elles
+sont rares, une par tableau environ.
+
+Six espèces, six silhouettes, six façons de bouger, et cinq gestes demandés :
+**caresser**, **secouer**, **pencher**, **ne plus bouger**, **repasser en
+arrière**. Les deux derniers n'ont besoin d'aucun capteur.
 
 ### Console
 

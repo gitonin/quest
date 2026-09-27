@@ -15,12 +15,20 @@
         box-sizing: border-box;
         -webkit-tap-highlight-color: transparent;
       }
+      :root {
+        --paper: #e9e9e7;
+        --ink: #1b1b1d;
+        --dim: #8a8a8d;
+        --accent: #c8202a;
+        --line: #b9b8b6;
+      }
       html,
       body {
         width: 100%;
         min-height: 100%;
         overflow: hidden;
-        background: #0b0b0c;
+        background: var(--paper);
+        transition: background 1.6s ease;
         touch-action: none;
         overscroll-behavior: none;
         user-select: none;
@@ -28,6 +36,7 @@
       }
       #stage {
         position: relative;
+        transition: background 1.6s ease;
         width: 100%;
         height: 100vh;
         height: 100dvh;
@@ -35,11 +44,11 @@
         align-items: center;
         justify-content: center;
         overflow: hidden;
-        background: #0b0b0c;
+        background: var(--paper);
       }
       #c {
         display: block;
-        background: #e9e9e7;
+        background: var(--paper);
       }
       #caption {
         position: absolute;
@@ -72,7 +81,7 @@
         font: 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
         letter-spacing: 0.22em;
         text-transform: uppercase;
-        color: #59595c;
+        color: var(--dim);
         pointer-events: none;
         mix-blend-mode: multiply;
       }
@@ -83,25 +92,30 @@
       #hud .tick {
         width: 4px;
         height: 4px;
-        background: #cfcfcf;
+        background: var(--line);
       }
       #hud .tick.on {
-        background: #c8202a;
+        background: var(--accent);
       }
+      /* Le titre d'un tableau: un seul mot, posé au milieu, qui s'efface. */
       #region {
         position: absolute;
-        top: 42%;
+        top: 40%;
         left: 0;
         right: 0;
         text-align: center;
-        font: 13px/1.6 ui-monospace, Menlo, monospace;
-        letter-spacing: 0.3em;
-        text-transform: uppercase;
-        color: #2a2a2c;
+        font: 26px/1.4 ui-monospace, Menlo, monospace;
+        letter-spacing: 0.42em;
+        text-indent: 0.42em;
+        text-transform: lowercase;
+        color: var(--ink);
         opacity: 0;
-        transition: opacity 1.4s ease;
+        transition: opacity 1.8s ease, letter-spacing 3s ease;
         pointer-events: none;
-        mix-blend-mode: multiply;
+      }
+      #region.show {
+        letter-spacing: 0.52em;
+        text-indent: 0.52em;
       }
       #region.show {
         opacity: 1;
@@ -115,9 +129,9 @@
         display: none;
         flex-direction: column;
         gap: 10px;
-        background: linear-gradient(to top, rgba(240, 239, 237, 0.97), rgba(240, 239, 237, 0));
+        background: linear-gradient(to top, var(--paper) 62%, transparent);
         font: 13px/1.55 ui-monospace, Menlo, monospace;
-        color: #1b1b1d;
+        color: var(--ink);
       }
       #talk.open {
         display: flex;
@@ -126,7 +140,7 @@
         font-size: 10px;
         letter-spacing: 0.22em;
         text-transform: uppercase;
-        color: #8a8a8d;
+        color: var(--dim);
       }
       #talk .line {
         max-width: 42em;
@@ -138,9 +152,9 @@
       }
       #talk button {
         font: inherit;
-        color: #1b1b1d;
+        color: var(--ink);
         background: transparent;
-        border: 1px solid #b9b8b6;
+        border: 1px solid var(--line);
         padding: 11px 14px;
         min-height: 44px;
         cursor: pointer;
@@ -148,8 +162,8 @@
       }
       #talk button:hover,
       #talk button:focus-visible {
-        border-color: #c8202a;
-        color: #c8202a;
+        border-color: var(--accent);
+        color: var(--accent);
         outline: none;
       }
       #ask {
@@ -161,7 +175,7 @@
         font: 11px/1.6 ui-monospace, Menlo, monospace;
         letter-spacing: 0.2em;
         text-transform: uppercase;
-        color: #c8202a;
+        color: var(--accent);
         pointer-events: none;
         opacity: 0;
         transition: opacity 0.5s ease;
@@ -174,13 +188,93 @@
         margin: 7px auto 0;
         width: 92px;
         height: 2px;
-        background: #d6d5d3;
+        background: var(--line);
       }
       #ask .bar i {
         display: block;
         height: 100%;
         width: 0;
-        background: #c8202a;
+        background: var(--accent);
+      }
+      /* Deux boutons de texte, minuscules, en bas à gauche. Rien d'autre. */
+      #tools {
+        position: absolute;
+        left: 14px;
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        display: flex;
+        gap: 14px;
+        font: 10px/1 ui-monospace, Menlo, monospace;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+      #tools button {
+        font: inherit;
+        letter-spacing: inherit;
+        text-transform: inherit;
+        color: var(--dim);
+        background: transparent;
+        border: 0;
+        padding: 12px 4px;
+        min-height: 44px;
+        cursor: pointer;
+      }
+      #tools button:hover,
+      #tools button:focus-visible {
+        color: var(--accent);
+        outline: none;
+      }
+      #score {
+        position: absolute;
+        inset: 0;
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        gap: 2px;
+        padding: 28px 22px calc(70px + env(safe-area-inset-bottom));
+        background: var(--paper);
+        font: 13px/1.5 ui-monospace, Menlo, monospace;
+        color: var(--ink);
+        overflow: auto;
+      }
+      #score.open {
+        display: flex;
+      }
+      #score h2 {
+        font: 10px/1 ui-monospace, Menlo, monospace;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: var(--dim);
+        font-weight: normal;
+        margin-bottom: 14px;
+      }
+      #score button {
+        font: inherit;
+        color: var(--ink);
+        background: transparent;
+        border: 0;
+        border-top: 1px solid var(--line);
+        padding: 13px 2px;
+        min-height: 48px;
+        text-align: left;
+        display: flex;
+        gap: 14px;
+        align-items: baseline;
+        cursor: pointer;
+        letter-spacing: 0.1em;
+      }
+      #score button .n {
+        font-size: 10px;
+        color: var(--dim);
+        letter-spacing: 0.2em;
+        min-width: 2.4em;
+      }
+      #score button.here .n {
+        color: var(--accent);
+      }
+      #score button:hover,
+      #score button:focus-visible {
+        color: var(--accent);
+        outline: none;
       }
       #err {
         position: absolute;
@@ -207,6 +301,11 @@
         <div class="line" id="talk-line"></div>
         <div class="choices" id="talk-choices"></div>
       </div>
+      <div id="tools">
+        <button type="button" id="btn-score">partition</button>
+        <button type="button" id="btn-cam">◉ latérale</button>
+      </div>
+      <div id="score"><h2>la partition</h2></div>
       <div id="caption">glissez pour marcher · haut et bas pour entrer dans la profondeur</div>
       <pre id="err"></pre>
     </div>
@@ -224,7 +323,11 @@
           choices: document.getElementById('talk-choices'),
           ask: document.getElementById('ask'),
           askLabel: document.getElementById('ask-label'),
-          askBar: document.getElementById('ask-bar')
+          askBar: document.getElementById('ask-bar'),
+          tools: document.getElementById('tools'),
+          btnScore: document.getElementById('btn-score'),
+          btnCam: document.getElementById('btn-cam'),
+          score: document.getElementById('score')
         };
         var canvas = document.getElementById('c');
         var caption = document.getElementById('caption');
@@ -254,9 +357,40 @@
         var CAM_H = 340; // hauteur de l'objectif: c'est elle qui étale la profondeur
         var CHUNK = 280; // largeur d'un morceau de monde
         var NOTE_SPACING = 26; // écart entre deux notes posées au sol
-        var REGION = 1400; // longueur d'un mouvement: la tonalité y change
-        var INK = '#121214';
-        var RED = '#c8202a';
+        /* ------------------------------------------------------ les tableaux
+         * Le voyage est découpé en actes. Chacun change le papier, l'encre,
+         * la teinte vive, le rythme des notes, le mode, la météo. On n'y
+         * entre pas par une porte: on y entre en marchant, et un mot s'écrit
+         * au milieu de l'image.
+         */
+        var ACT_LEN = 2600;
+        var ACTS = [
+          { word: 'sillon', paper: ['#f3f2f0', '#cfcecd'], ink: '#121214', accent: '#c8202a',
+            tonic: 0, scale: [0, 3, 5, 7, 10], spacing: 26, weather: 'clair', wet: 0.4 },
+          { word: 'duvet', paper: ['#f6f4ee', '#d8d5cc'], ink: '#1a1a18', accent: '#3f7a5e',
+            tonic: 5, scale: [0, 2, 4, 7, 9], spacing: 20, weather: 'clair', wet: 0.32 },
+          { word: 'averse', paper: ['#e7eaec', '#c3c8cc'], ink: '#15181a', accent: '#2a7f9e',
+            tonic: -2, scale: [0, 2, 3, 5, 7], spacing: 22, weather: 'pluie', wet: 0.55 },
+          { word: 'nuit', paper: ['#0b0c10', '#050507'], ink: '#dfe2e6', accent: '#e8d7a8',
+            tonic: -7, scale: [0, 2, 3, 7, 8], spacing: 32, weather: 'orage', wet: 0.7, dark: true },
+          { word: 'cendre', paper: ['#e2e0dc', '#b9b6b1'], ink: '#17161a', accent: '#a8442a',
+            tonic: -4, scale: [0, 1, 5, 7, 10], spacing: 16, weather: 'vent', wet: 0.45 },
+          { word: 'verre', paper: ['#f7f8fa', '#dde1e6'], ink: '#10131a', accent: '#6a84c8',
+            tonic: 7, scale: [0, 2, 4, 7, 11], spacing: 18, weather: 'clair', wet: 0.5 },
+          { word: 'seuil', paper: ['#f1efec', '#cbc7c1'], ink: '#131213', accent: '#c8202a',
+            tonic: 3, scale: [0, 3, 5, 7, 10], spacing: 34, weather: 'clair', wet: 0.6 }
+        ];
+
+        function actIndexAt(x) {
+          var i = Math.floor(x / ACT_LEN);
+          return ((i % ACTS.length) + ACTS.length) % ACTS.length;
+        }
+        function actAt(x) {
+          return ACTS[actIndexAt(x)];
+        }
+
+        var act = ACTS[0];
+        var actIndex = 0;
 
         /* ------------------------------------------------------------------
          * Le son.
@@ -275,6 +409,8 @@
             echo = null,
             drone = null,
             droneGain = null,
+            wetGain = null,
+            noiseBuf = null,
             ready = false,
             voices = 0,
             lastAt = 0;
@@ -316,11 +452,17 @@
             d.connect(dlp);
             dlp.connect(fb);
             fb.connect(d);
-            var wet = ac.createGain();
-            wet.gain.value = 0.4;
-            d.connect(wet);
-            wet.connect(tone);
+            wetGain = ac.createGain();
+            wetGain.gain.value = 0.4;
+            d.connect(wetGain);
+            wetGain.connect(tone);
             echo = d;
+
+            // Un peu de bruit blanc en réserve: la pluie et le tonnerre en
+            // vivent.
+            noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+            var nd = noiseBuf.getChannelData(0);
+            for (var ni = 0; ni < nd.length; ni++) nd[ni] = Math.random() * 2 - 1;
 
             // Bourdon: la tonalité de la région, toujours là, très bas.
             drone = ac.createOscillator();
@@ -403,6 +545,61 @@
               var t = Math.max(0, Math.min(1, (z + 80) / 260));
               tone.frequency.setTargetAtTime(6200 - t * 5100, ac.currentTime, 0.25);
               droneGain.gain.setTargetAtTime(0.035 + t * 0.07, ac.currentTime, 0.4);
+            },
+            setScale: function (sc) {
+              SCALE = sc.slice();
+            },
+            setWet: function (w) {
+              if (!ready) return;
+              wetGain.gain.setTargetAtTime(w, ac.currentTime, 1.2);
+            },
+            /* Une voix. Pas des mots: des petites impulsions filtrées, très
+             * basses en niveau, qui donnent à la créature un grain de parole
+             * sans jamais couvrir la musique. */
+            voice: function (seed, count) {
+              if (!ready) return;
+              var r = makeRng(seed);
+              var n = count || 9;
+              for (var i = 0; i < n; i++) {
+                var t = ac.currentTime + i * 0.058;
+                var o = ac.createOscillator();
+                var g = ac.createGain();
+                var bp = ac.createBiquadFilter();
+                bp.type = 'bandpass';
+                bp.frequency.value = 620 + r.range(0, 900);
+                bp.Q.value = 3.5;
+                o.type = 'triangle';
+                var f0 = freq(tonic + 12 + SCALE[r.int(0, SCALE.length)]);
+                o.frequency.setValueAtTime(f0, t);
+                o.frequency.linearRampToValueAtTime(f0 * r.range(0.94, 1.08), t + 0.05);
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.exponentialRampToValueAtTime(0.022, t + 0.008);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.052);
+                o.connect(bp);
+                bp.connect(g);
+                g.connect(tone);
+                o.start(t);
+                o.stop(t + 0.09);
+              }
+            },
+            thunder: function (distance) {
+              if (!ready || !noiseBuf) return;
+              var t = ac.currentTime + (distance || 0.6);
+              var src = ac.createBufferSource();
+              src.buffer = noiseBuf;
+              var lp2 = ac.createBiquadFilter();
+              lp2.type = 'lowpass';
+              lp2.frequency.setValueAtTime(900, t);
+              lp2.frequency.exponentialRampToValueAtTime(120, t + 2.2);
+              var g = ac.createGain();
+              g.gain.setValueAtTime(0.0001, t);
+              g.gain.exponentialRampToValueAtTime(0.22, t + 0.08);
+              g.gain.exponentialRampToValueAtTime(0.0001, t + 2.6);
+              src.connect(lp2);
+              lp2.connect(g);
+              g.connect(master);
+              src.start(t);
+              src.stop(t + 2.7);
             },
             setTonic: function (semi) {
               tonic = semi;
@@ -499,9 +696,11 @@
         }
 
         function buildDiscs() {
+          discsInk.length = 0;
+          discsRed.length = 0;
           for (var i = 0; i < RADII.length; i++) {
-            discsInk.push(buildDisc(RADII[i], INK, 0.5));
-            discsRed.push(buildDisc(RADII[i], RED, 0.35));
+            discsInk.push(buildDisc(RADII[i], act.ink, 0.5));
+            discsRed.push(buildDisc(RADII[i], act.accent, 0.35));
           }
         }
 
@@ -657,7 +856,7 @@
           // changer de profondeur, c'est changer d'instrument.
           var notes = [];
           var nx = Math.ceil(x0 / NOTE_SPACING) * NOTE_SPACING;
-          for (; nx < x0 + CHUNK; nx += NOTE_SPACING) {
+          for (; nx < x0 + CHUNK; nx += actAt(nx).spacing) {
             var rn = makeRng(Math.round(nx) * 977 + 13);
             if (rn.next() < 0.16) continue; // les silences font la phrase
             var contour = Math.sin(nx * 0.0035) * 2.4 + Math.sin(nx * 0.0013 + 1.1) * 1.9;
@@ -683,7 +882,8 @@
 
           // --- Les créatures -----------------------------------------------
           var creatures = [];
-          if (ci % 3 === 1) {
+          // Rare: une rencontre par tableau environ. La surprise se garde.
+          if (makeRng(ci * 131 + 7).int(0, 7) === 2) {
             var cr = makeRng(ci * 5501 + 77);
             var ccx = cr.range(x0 + 70, x0 + CHUNK - 70);
             // Les tiges de premier plan masquent tout: on s'en écarte.
@@ -698,7 +898,9 @@
               y: groundAt(ccx + ccz * 0.4),
               mood: cr.range(0.35, 0.6),
               ph: cr.range(0, 6.28),
-              shape: cr.int(0, 3),
+              shape: cr.int(0, SPECIES.length),
+              base: groundAt(ccx + ccz * 0.4),
+              baseX: ccx,
               node: null,
               done: false
             });
@@ -759,11 +961,13 @@
         }
 
         /* --------------------------------------------------------- état */
-        var cam = { x: 0, drift: 0 };
+        var cam = { x: 0, z: 0, drift: 0 };
+        var CAM_TOP = 560; // hauteur de l'objectif en vue de dessus
+        var camMode = 0; // 0 latérale · 1 dessus · 2 face
+        var CAM_NAMES = ['latérale', 'dessus', 'face'];
         var hero = { x: 0, z: 0, vx: 0, vz: 0, face: 1, step: 0, bob: 0, prevX: 0 };
         var steps = 0;
         var fragments = []; // les morceaux de phrase donnés par les créatures
-        var region = 0;
         var nearCreature = null;
         var focusZ = 0;
         var focusTarget = 0;
@@ -773,13 +977,50 @@
         var keys = Object.create(null);
         var interacted = false;
 
+        /* ------------------------------------------------------ l'objectif
+         * Une seule fonction place un point du monde à l'écran, quelle que
+         * soit la vue. Elle rend aussi `blur`: la distance au plan de
+         * netteté, mesurée le long de l'axe de la caméra — c'est elle qui
+         * décide si un grain est un carré net ou un disque étalé.
+         *
+         * La caméra suit la créature en profondeur (`cam.z`): s'enfoncer
+         * rapproche tout le fond au lieu de simplement le rétrécir, et c'est
+         * ça qui donne la sensation d'un objectif qui avance dans la matière.
+         */
+        function mapPoint(gx, gy, gz) {
+          var depth, k, sx, sy, blur;
+
+          if (camMode === 2) {
+            // Vue de face: on regarde le long de la marche. L'axe x devient
+            // la profondeur, l'axe z l'horizontale.
+            depth = gx - cam.x + 300;
+            if (F + depth < 70) return null;
+            k = F / (F + depth);
+            sx = W * 0.5 - (gz - cam.z + cam.drift) * k * unit;
+            sy = horizonY + (CAM_H - gy) * k * unit;
+            blur = gx - hero.x;
+            return { k: k, sx: sx, sy: sy, blur: blur };
+          }
+
+          depth = gz - cam.z;
+          if (camMode === 1) {
+            // Vue de dessus: la profondeur s'étale verticalement et l'échelle
+            // ne dépend plus que de la hauteur des choses.
+            var kt = F / (F + Math.max(30, CAM_TOP - gy));
+            sx = W * 0.5 + (gx - cam.x + cam.drift) * kt * unit * 1.6;
+            sy = H * 0.52 + (gz - cam.z) * kt * unit * 1.6;
+            return { k: kt * 1.6, sx: sx, sy: sy, blur: gz - focusZ };
+          }
+
+          if (F + depth < 70) return null;
+          k = F / (F + depth);
+          sx = W * 0.5 + (gx - cam.x + cam.drift) * k * unit;
+          sy = horizonY + (CAM_H - gy) * k * unit;
+          return { k: k, sx: sx, sy: sy, blur: gz - focusZ };
+        }
+
         function project(gx, gy, gz) {
-          var k = F / (F + gz);
-          return {
-            k: k,
-            sx: W * 0.5 + (gx - cam.x + cam.drift) * k * unit,
-            sy: horizonY + (CAM_H - gy) * k * unit
-          };
+          return mapPoint(gx, gy, gz) || { k: 0.001, sx: -9999, sy: -9999, blur: 0 };
         }
 
         var BUCKETS = 10;
@@ -787,10 +1028,18 @@
         var queues = [];
         (function () {
           for (var i = 0; i < BUCKETS; i++) {
-            inkStyles.push('rgba(18,18,20,' + ((i + 1) / BUCKETS).toFixed(2) + ')');
+            inkStyles.push('');
             queues.push([]);
           }
         })();
+
+        function restyleInk() {
+          var v = parseInt(act.ink.slice(1), 16);
+          var rgb = ((v >> 16) & 255) + ',' + ((v >> 8) & 255) + ',' + (v & 255);
+          for (var i = 0; i < BUCKETS; i++) {
+            inkStyles[i] = 'rgba(' + rgb + ',' + ((i + 1) / BUCKETS).toFixed(2) + ')';
+          }
+        }
 
         function flushCrisp() {
           for (var b = 0; b < BUCKETS; b++) {
@@ -804,20 +1053,22 @@
         }
 
         function drawGrain(g, redTint, alphaBoost) {
-          var k = F / (F + g.z);
-          if (k <= 0.03) return;
-          var sx = W * 0.5 + (g.x - cam.x + cam.drift) * k * unit;
+          var pt = mapPoint(g.x, g.y, g.z);
+          if (!pt || pt.k <= 0.03) return;
+          var k = pt.k;
+          var sx = pt.sx;
           if (sx < -80 || sx > W + 80) return;
-          var sy = horizonY + (CAM_H - g.y) * k * unit;
+          var sy = pt.sy;
+          if (sy < -120 || sy > H + 120) return;
           var size = g.s * k * unit;
-          var coc = Math.abs(g.z - focusZ) * k * APERTURE * unit;
+          var coc = Math.abs(pt.blur) * k * APERTURE * unit;
           var alpha = g.a * (alphaBoost || 1);
 
           if (coc < 1.1) {
             var ps = Math.max(1, Math.round(size));
             if (redTint) {
               ctx.globalAlpha = Math.min(1, alpha);
-              ctx.fillStyle = RED;
+              ctx.fillStyle = act.accent;
               ctx.fillRect(Math.round(sx), Math.round(sy), ps, ps);
             } else {
               var b = Math.min(BUCKETS - 1, Math.max(0, Math.round(alpha * BUCKETS) - 1));
@@ -855,24 +1106,23 @@
           var moving = Math.abs(hero.vx) + Math.abs(hero.vz) > 5;
           var frame = moving ? GAIT[Math.floor(hero.step) % GAIT.length] : GAIT[0];
           var ground = heroGround();
-          var hk = F / (F + hero.z);
           var baseY = ground + GRAIN * 3 + hero.bob; // 3 grains de haut
           var p = project(hero.x, baseY, hero.z);
-
-          var cell = GRAIN * unit * hk;
+          var groundPt = project(hero.x, ground, hero.z);
+          var cell = GRAIN * unit * p.k;
 
           // Ombre portée: un disque doux, posé au sol.
           ctx.globalAlpha = 0.3;
           ctx.drawImage(
             discFor(9, false),
             p.sx - cell * 2.6,
-            horizonY + (CAM_H - ground) * hk * unit - cell * 0.9,
+            groundPt.sy - cell * 0.9,
             cell * 5.2,
             cell * 1.9
           );
 
           ctx.globalAlpha = 1;
-          ctx.fillStyle = INK;
+          ctx.fillStyle = act.ink;
           var side = Math.max(2, Math.round(cell * 0.84));
           for (var row = 0; row < frame.length; row++) {
             for (var col = 0; col < 3; col++) {
@@ -918,14 +1168,16 @@
 
         function drawMote(m) {
           if (m.gone > 2.6) return;
-          var k = F / (F + m.z);
-          var sx = W * 0.5 + (m.x - cam.x + cam.drift) * k * unit;
+          var mp = mapPoint(m.x, m.y, m.z);
+          if (!mp) return;
+          var k = mp.k;
+          var sx = mp.sx;
           if (sx < -90 || sx > W + 90) return;
-          var sy = horizonY + (CAM_H - m.y) * k * unit;
+          var sy = mp.sy;
           var pulse = 0.5 + 0.5 * Math.sin(m.ph);
           var bloom = m.found ? Math.min(1, m.found) : 0;
           var fade = m.gone ? Math.max(0, 1 - (m.gone - 1) / 1.6) : 1;
-          var coc = Math.abs(m.z - focusZ) * k * APERTURE * unit;
+          var coc = Math.abs(mp.blur) * k * APERTURE * unit;
 
           // Halo: la seule lumière colorée de la scène.
           ctx.globalAlpha = (0.1 + pulse * 0.1 + bloom * 0.3) * fade;
@@ -941,7 +1193,7 @@
               var a = m.ph * 0.6 + (i / 5) * Math.PI * 2;
               var rr = (10 + bloom * 26) * k;
               ctx.globalAlpha = 0.5 * bloom * fade;
-              ctx.fillStyle = RED;
+              ctx.fillStyle = act.accent;
               ctx.fillRect(Math.round(sx + Math.cos(a) * rr), Math.round(sy + Math.sin(a) * rr * 0.7), 2, 2);
             }
           }
@@ -959,10 +1211,9 @@
           bgLayer.height = H;
           var bc = bgLayer.getContext('2d');
           var g = bc.createLinearGradient(0, 0, 0, H);
-          g.addColorStop(0, '#f3f2f0');
-          g.addColorStop(0.42, '#e7e6e4');
-          g.addColorStop(0.72, '#dcdbd9');
-          g.addColorStop(1, '#cfcecd');
+          g.addColorStop(0, act.paper[0]);
+          g.addColorStop(0.55, mixHex(act.paper[0], act.paper[1], 0.55));
+          g.addColorStop(1, act.paper[1]);
           bc.fillStyle = g;
           bc.fillRect(0, 0, W, H);
 
@@ -972,7 +1223,7 @@
           var vc = vigLayer.getContext('2d');
           var v = vc.createRadialGradient(W / 2, H * 0.5, Math.min(W, H) * 0.32, W / 2, H * 0.5, Math.max(W, H) * 0.78);
           v.addColorStop(0, 'rgba(0,0,0,0)');
-          v.addColorStop(1, 'rgba(20,20,22,0.3)');
+          v.addColorStop(1, act.dark ? 'rgba(0,0,0,0.55)' : 'rgba(20,20,22,0.3)');
           vc.fillStyle = v;
           vc.fillRect(0, 0, W, H);
 
@@ -1067,6 +1318,7 @@
           }
 
           flushCrisp();
+          drawWeather();
           drawNotes(list);
           drawEvents(list);
           flushCrisp();
@@ -1089,6 +1341,7 @@
 
           flushCrisp();
           postProcess();
+          drawFlash();
         }
 
         /* ------------------------------------------------------ logique */
@@ -1130,10 +1383,15 @@
           }
 
           readScore();
+          updateAsk(dt);
           updateRegion();
           Sound.setDepth(hero.z);
 
           cam.x += (hero.x - cam.x) * Math.min(1, dt * 2.4);
+          // L'objectif accompagne la créature dans la profondeur: c'est ce
+          // déplacement, et pas seulement le changement d'échelle, qui fait
+          // sentir qu'on entre dans la matière.
+          cam.z += (hero.z - cam.z) * Math.min(1, dt * 1.7);
           // Respiration de l'opérateur: infime, mais c'est elle qui fait
           // croire à une caméra tenue au-dessus d'une maquette.
           cam.drift = reduceMotion ? 0 : Math.sin(time * 0.53) * 2.4 + Math.sin(time * 1.31) * 0.9;
@@ -1247,6 +1505,85 @@
               }
             }
           }
+          ,
+          {
+            who: 'le veilleur',
+            nodes: {
+              start: {
+                line: 'Tu fais un bruit terrible en marchant. Tu t\'entends ?',
+                choices: [
+                  { text: 'Je croyais faire de la musique.', to: 'musique' },
+                  { text: 'Je peux me taire.', to: 'taire' }
+                ]
+              },
+              musique: {
+                line: 'C\'en est, oui. Mais je n\'ai jamais entendu le silence d\'ici. Offre-le moi.',
+                ask: { type: 'immobile', label: 'ne bougez plus' },
+                to: 'gift'
+              },
+              taire: {
+                line: 'Alors tais-toi vraiment. Complètement. Je compte.',
+                ask: { type: 'immobile', label: 'ne bougez plus' },
+                to: 'gift'
+              },
+              gift: {
+                line: 'Là. Tu as entendu ? Il y avait quelque chose dessous.',
+                gift: { name: 'le dessous', motif: [0, 7, 3] }
+              }
+            }
+          },
+          {
+            who: 'la retournée',
+            nodes: {
+              start: {
+                line: 'Je n\'ai entendu ta phrase que dans un sens. Ça ne suffit pas.',
+                choices: [
+                  { text: 'Elle se joue aussi à l\'envers.', to: 'envers' },
+                  { text: 'Une phrase a un sens.', to: 'sens' }
+                ]
+              },
+              envers: {
+                line: 'Montre. Repasse derrière toi, lentement.',
+                ask: { type: 'reverse', label: 'repassez vers la gauche' },
+                to: 'gift'
+              },
+              sens: {
+                line: 'Les phrases n\'ont pas de sens, elles ont deux bouts. Fais demi-tour.',
+                ask: { type: 'reverse', label: 'repassez vers la gauche' },
+                to: 'gift'
+              },
+              gift: {
+                line: 'Voilà. Les mêmes notes, et pourtant ce n\'est plus la même chose.',
+                gift: { name: 'le retour', motif: [10, 7, 5, 3] }
+              }
+            }
+          },
+          {
+            who: 'la minuscule',
+            nodes: {
+              start: {
+                line: '…',
+                choices: [
+                  { text: 'Bonjour.', to: 'peur' },
+                  { text: 'Ne bouge pas, je passe.', to: 'passe' }
+                ]
+              },
+              peur: {
+                line: 'Tu es immense. Tout est immense. Touche-moi doucement, pour voir.',
+                ask: { type: 'caress', label: 'caressez-la' },
+                to: 'gift'
+              },
+              passe: {
+                line: 'Non. Reste. Enfin — touche d\'abord, on verra ensuite.',
+                ask: { type: 'caress', label: 'caressez-la' },
+                to: 'gift'
+              },
+              gift: {
+                line: 'Oh. Tu es chaud. Prends ça, je n\'en fais rien.',
+                gift: { name: 'le rien', motif: [5, 5, 3, 0] }
+              }
+            }
+          }
         ];
 
         var talkOpen = false;
@@ -1274,6 +1611,8 @@
           var node = talk.script.nodes[talk.node];
           hud.who.textContent = talk.script.who;
           hud.line.textContent = node.line;
+          // La voix: des impulsions filtrées, très douces, jamais des mots.
+          Sound.voice(talk.node.charCodeAt(0) * 31 + node.line.length, Math.min(14, Math.round(node.line.length / 7)));
           hud.choices.innerHTML = '';
 
           if (node.gift) {
@@ -1285,6 +1624,15 @@
               talk.creature.done = true;
               talk.creature.mood = 0.15;
               closeTalk();
+              // Trois morceaux: la phrase se referme, et le monde le dit.
+              if (fragments.length === 3) {
+                setTimeout(function () {
+                  var whole = [];
+                  for (var i = 0; i < 3; i++) whole = whole.concat(fragments[i].motif);
+                  Sound.motif(whole, 'pluck', 0.2);
+                  announce('la phrase');
+                }, 900);
+              }
             });
             return;
           }
@@ -1327,10 +1675,23 @@
           hud.talk.classList.remove('open');
           talkOpen = false;
           pendingAsk = { type: ask.type, progress: 0, done: done };
-          hud.askLabel.textContent = ask.label + (ask.type === 'caress' ? '' : ' — ou frottez l\'écran');
+          var needsSensor = ask.type === 'shake' || ask.type === 'tilt';
+          hud.askLabel.textContent = ask.label + (needsSensor ? ' — ou frottez l\'écran' : '');
           hud.ask.classList.add('show');
           hud.askBar.style.width = '0%';
-          if (ask.type !== 'caress') requestSensors();
+          if (needsSensor) requestSensors();
+        }
+
+        // Rester immobile, ou repasser à l'envers: deux demandes qui n'ont
+        // besoin d'aucun capteur et qui changent la façon de marcher.
+        function updateAsk(dt) {
+          if (!pendingAsk) return;
+          if (pendingAsk.type === 'immobile') {
+            if (Math.abs(hero.vx) + Math.abs(hero.vz) < 4) feedAsk(dt * 0.42);
+            else pendingAsk.progress = Math.max(0, pendingAsk.progress - dt * 0.8);
+          } else if (pendingAsk.type === 'reverse') {
+            if (hero.vx < -14) feedAsk(dt * 0.5);
+          }
         }
 
         function feedAsk(amount) {
@@ -1432,27 +1793,42 @@
         }
 
         function updateRegion() {
-          var r = Math.floor(hero.x / REGION);
-          if (r === region) return;
-          region = r;
-          // Chaque mouvement a sa tonalité: le monde module en avançant.
-          var degrees = [0, -2, 3, 5, -4, 7];
-          var t = degrees[((r % degrees.length) + degrees.length) % degrees.length];
-          Sound.setTonic(t);
-          announce(REGION_NAMES[((r % REGION_NAMES.length) + REGION_NAMES.length) % REGION_NAMES.length]);
-          // Les morceaux de phrase déjà recueillis se rappellent à nous.
-          if (fragments.length) Sound.motif(fragments[fragments.length - 1].motif, 'bell', 0.16);
+          var i = actIndexAt(hero.x);
+          if (i === actIndex && act === ACTS[i]) return;
+          applyAct(i, true);
         }
 
-        var REGION_NAMES = [
-          'le sillon',
-          'la halte',
-          'les cendres claires',
-          'le pli',
-          'la grande respiration',
-          'les restes du jour',
-          'le seuil'
-        ];
+        function applyAct(i, announceIt) {
+          actIndex = i;
+          act = ACTS[i];
+          restyleInk();
+          buildDiscs();
+          buildStatics();
+          var root = document.documentElement.style;
+          root.setProperty('--paper', act.paper[0]);
+          root.setProperty('--ink', act.ink);
+          root.setProperty('--accent', act.accent);
+          root.setProperty('--dim', mixHex(act.ink, act.paper[0], 0.55));
+          root.setProperty('--line', mixHex(act.ink, act.paper[0], 0.76));
+          Sound.setScale(act.scale);
+          Sound.setTonic(act.tonic);
+          Sound.setWet(act.wet);
+          setWeather(act.weather);
+          if (announceIt) {
+            announce(act.word);
+            // Les morceaux de phrase déjà recueillis se rappellent à nous.
+            if (fragments.length) Sound.motif(fragments[fragments.length - 1].motif, 'bell', 0.16);
+          }
+        }
+
+        function mixHex(a, b, t) {
+          var va = parseInt(a.slice(1), 16);
+          var vb = parseInt(b.slice(1), 16);
+          var r = Math.round(((va >> 16) & 255) * (1 - t) + ((vb >> 16) & 255) * t);
+          var g = Math.round(((va >> 8) & 255) * (1 - t) + ((vb >> 8) & 255) * t);
+          var bl = Math.round((va & 255) * (1 - t) + (vb & 255) * t);
+          return '#' + ((r << 16) | (g << 8) | bl).toString(16).padStart(6, '0');
+        }
 
         function announce(text) {
           hud.region.textContent = text;
@@ -1461,6 +1837,130 @@
           announce._t = setTimeout(function () {
             hud.region.classList.remove('show');
           }, 2600);
+        }
+
+        /* --------------------------------------------------------- la météo
+         * La pluie est faite des mêmes grains que le reste. Chaque goutte qui
+         * touche le sol ouvre une onde — un anneau de grains qui s'écarte —
+         * et fait sonner une note très basse en niveau. Il pleut donc de la
+         * musique, en continu, sans jamais rien déclencher d'autre.
+         */
+        var weather = {
+          kind: 'clair',
+          drops: [],
+          ripples: [],
+          flash: 0,
+          bolt: 7,
+          wind: 0,
+          rng: makeRng(4242)
+        };
+
+        function setWeather(kind) {
+          weather.kind = kind;
+          weather.drops.length = 0;
+          weather.ripples.length = 0;
+          weather.flash = 0;
+          weather.bolt = 4 + Math.random() * 6;
+          weather.wind = kind === 'orage' ? -26 : kind === 'vent' ? -14 : 0;
+        }
+
+        function dropCount() {
+          if (weather.kind === 'orage') return 74;
+          if (weather.kind === 'pluie') return 40;
+          return 0;
+        }
+
+        function updateWeather(dt) {
+          var want = dropCount();
+          var r = weather.rng;
+
+          while (weather.drops.length < want) {
+            weather.drops.push({
+              x: hero.x + r.range(-320, 320),
+              y: r.range(120, 420),
+              z: r.range(-140, 300),
+              v: 150 + r.range(0, 120),
+              len: r.range(2.5, 5)
+            });
+          }
+          if (weather.drops.length > want) weather.drops.length = want;
+
+          for (var i = 0; i < weather.drops.length; i++) {
+            var d = weather.drops[i];
+            d.y -= d.v * dt;
+            d.x += weather.wind * dt;
+            var ground = groundAt(d.x + d.z * 0.4);
+            if (d.y <= ground) {
+              // L'impact: une onde, et une note très douce.
+              weather.ripples.push({ x: d.x, y: ground, z: d.z, r: 0, life: 1 });
+              if (Math.abs(d.z - hero.z) < 120 && r.next() < 0.22) {
+                Sound.note(r.next() < 0.3 ? 'pluck' : 'bell', r.int(0, 6), 0.022);
+              }
+              d.y = 140 + r.range(0, 300);
+              d.x = hero.x + r.range(-320, 320);
+              d.z = r.range(-140, 300);
+            }
+          }
+
+          for (var j = weather.ripples.length - 1; j >= 0; j--) {
+            var rp = weather.ripples[j];
+            rp.r += dt * 36;
+            rp.life -= dt * 0.9;
+            if (rp.life <= 0) weather.ripples.splice(j, 1);
+          }
+          if (weather.ripples.length > 60) weather.ripples.splice(0, weather.ripples.length - 60);
+
+          if (weather.kind === 'orage') {
+            weather.bolt -= dt;
+            if (weather.bolt <= 0) {
+              weather.bolt = 6 + Math.random() * 11;
+              weather.flash = 1;
+              Sound.thunder(0.5 + Math.random() * 1.6);
+            }
+          }
+          weather.flash = Math.max(0, weather.flash - dt * 2.6);
+        }
+
+        function drawWeather() {
+          var i;
+          for (i = 0; i < weather.drops.length; i++) {
+            var d = weather.drops[i];
+            // Une goutte est un trait de deux ou trois grains: elle tombe
+            // dans le même volume que tout le reste, donc elle se floute.
+            for (var q = 0; q < 3; q++) {
+              drawGrain(
+                { x: d.x - q * weather.wind * 0.012, y: d.y + q * d.len, z: d.z, s: GRAIN - 2.6, a: 0.42 - q * 0.1 },
+                false,
+                1
+              );
+            }
+          }
+          for (i = 0; i < weather.ripples.length; i++) {
+            var rp = weather.ripples[i];
+            var pts = 12;
+            for (var a = 0; a < pts; a++) {
+              var ang = (a / pts) * Math.PI * 2;
+              drawGrain(
+                {
+                  x: rp.x + Math.cos(ang) * rp.r,
+                  y: rp.y + 0.5,
+                  z: rp.z + Math.sin(ang) * rp.r * 0.55,
+                  s: GRAIN - 3,
+                  a: Math.max(0, rp.life * 0.5)
+                },
+                false,
+                1
+              );
+            }
+          }
+        }
+
+        function drawFlash() {
+          if (weather.flash <= 0.01) return;
+          ctx.globalAlpha = weather.flash * 0.6;
+          ctx.fillStyle = act.dark ? '#c9d6e8' : '#ffffff';
+          ctx.fillRect(0, 0, W, H);
+          ctx.globalAlpha = 1;
         }
 
         /* ------------------------------------------------------ surprises
@@ -1530,10 +2030,12 @@
             for (var e = 0; e < evs.length; e++) {
               var ev = evs[e];
               if (ev.kind !== 'passage' || !ev.fired || ev.t > 11) continue;
-              var k = F / (F + ev.z);
               var travel = -260 + ev.t * 58;
-              var sx = W * 0.5 + (ev.x + travel - cam.x + cam.drift) * k * unit;
-              var sy = horizonY + (CAM_H - ev.y) * k * unit;
+              var pp = mapPoint(ev.x + travel, ev.y, ev.z);
+              if (!pp) continue;
+              var k = pp.k;
+              var sx = pp.sx;
+              var sy = pp.sy;
               var fade = Math.min(1, ev.t * 0.5) * Math.max(0, 1 - (ev.t - 8) / 3);
               var pr = makeRng(Math.round(ev.x) * 31 + 7);
               for (var b = 0; b < 7; b++) {
@@ -1559,7 +2061,7 @@
                   var tx = ev.x + rr.range(-26, 26);
                   var tz = ev.z + rr.range(-12, 12);
                   var len = rr.int(8, 20);
-                  var kf = F / (F + tz);
+                  var kf = Math.max(0.05, F / (F + (tz - cam.z)));
                   var base = groundAt(tx + tz * 0.4);
                   for (var q = 0; q < len; q++) {
                     drawGrain(
@@ -1594,7 +2096,7 @@
             for (var j = 0; j < ns.length; j++) {
               var n = ns[j];
               if (n.lit > 0) n.lit = Math.max(0, n.lit - 0.02);
-              var kf = F / (F + n.z);
+              var kf = Math.max(0.05, F / (F + (n.z - cam.z)));
               var base = 0.16 + (n.kind === 'bass' ? 0.06 : 0);
               // Une note est un petit bâton planté: on voit la partition.
               for (var q = 0; q < (n.kind === 'bell' ? 3 : 2); q++) {
@@ -1620,11 +2122,22 @@
           }
         }
 
+        /* Six espèces, six silhouettes, six manières de bouger. La variété
+         * tient à leur rareté autant qu'à leur dessin: on en croise une par
+         * tableau, pas une par minute. */
+        var SPECIES = [
+          { shape: ['.#.', '###', '#.#'], move: 'tremble' },
+          { shape: ['#.#', '###', '.#.'], move: 'immobile' },
+          { shape: ['.##', '##.', '.#.'], move: 'rampe' },
+          { shape: ['#.#', '.#.', '#.#'], move: 'flotte' },
+          { shape: ['.#.', '#.#', '###', '.#.'], move: 'flotte' },
+          { shape: ['##', '##'], move: 'rampe' }
+        ];
         var CREATURE_SHAPES = [
-          ['.#.', '###', '#.#'],
-          ['#.#', '###', '.#.'],
-          ['.##', '##.', '.#.'],
-          ['#.#', '.#.', '#.#']
+          SPECIES[0].shape,
+          SPECIES[1].shape,
+          SPECIES[2].shape,
+          SPECIES[3].shape
         ];
 
         function drawCreatures(list) {
@@ -1632,28 +2145,34 @@
             var cs = list[i].creatures;
             for (var j = 0; j < cs.length; j++) {
               var c = cs[j];
+              var spec = SPECIES[c.shape % SPECIES.length];
+              var shape = spec.shape;
               c.ph += 0.016 * (0.6 + c.mood * 3);
-              var kf = F / (F + c.z);
-              var cell = GRAIN * unit * kf;
-              var jitter = c.mood * 1.6;
+              if (spec.move === 'flotte') c.y = c.base + 10 + Math.sin(c.ph * 0.7) * 6;
+              else if (spec.move === 'rampe') c.x = c.baseX + Math.sin(c.ph * 0.35) * 9;
+
               var p = project(c.x, c.y + GRAIN * 3, c.z);
-              var shape = CREATURE_SHAPES[c.shape % CREATURE_SHAPES.length];
+              if (p.sx < -120 || p.sx > W + 120) continue;
+              var kf = p.k;
+              var cell = GRAIN * unit * kf;
+              var jitter = c.mood * (spec.move === 'tremble' ? 2.2 : 0.7);
               var breathe = Math.sin(c.ph) > 0.6 ? 1 : 0;
 
               ctx.globalAlpha = 0.24;
+              var groundPt = project(c.x, c.y, c.z);
               ctx.drawImage(
                 discFor(9, false),
                 p.sx - cell * 2.4,
-                horizonY + (CAM_H - c.y) * kf * unit - cell * 0.8,
+                groundPt.sy - cell * 0.8,
                 cell * 4.8,
                 cell * 1.7
               );
 
               ctx.globalAlpha = 0.92;
-              ctx.fillStyle = INK;
+              ctx.fillStyle = act.ink;
               var side = Math.max(2, Math.round(cell * 0.84));
               for (var row = 0; row < shape.length; row++) {
-                for (var col = 0; col < 3; col++) {
+                for (var col = 0; col < shape[row].length; col++) {
                   if (shape[row][col] !== '#') continue;
                   var ox = Math.sin(c.ph * 7 + row) * jitter;
                   var gx = Math.round(p.sx + (col - 1) * cell + ox - side / 2);
@@ -1693,6 +2212,48 @@
           if (nearCreature && best < 24 && !talkOpen && !pendingAsk) openTalk(nearCreature);
         }
 
+        /* ------------------------------------------- partition et objectif */
+        var ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+
+        function buildScoreMenu() {
+          hud.score.innerHTML = '<h2>la partition</h2>';
+          for (var i = 0; i < ACTS.length; i++) {
+            (function (idx) {
+              var b = document.createElement('button');
+              b.type = 'button';
+              if (idx === actIndex) b.className = 'here';
+              var n = document.createElement('span');
+              n.className = 'n';
+              n.textContent = ROMAN[idx];
+              var w = document.createElement('span');
+              w.textContent = ACTS[idx].word;
+              b.appendChild(n);
+              b.appendChild(w);
+              b.addEventListener('click', function () {
+                jumpToAct(idx);
+              });
+              hud.score.appendChild(b);
+            })(i);
+          }
+        }
+
+        function jumpToAct(i) {
+          // On reste dans le même cycle de tableaux: la partition boucle, le
+          // monde continue tout droit.
+          var cycle = ACT_LEN * ACTS.length;
+          var base = Math.floor(hero.x / cycle) * cycle;
+          hero.x = base + i * ACT_LEN + 70;
+          hero.prevX = hero.x;
+          hero.z = 0;
+          hero.vx = 0;
+          hero.vz = 0;
+          cam.x = hero.x;
+          cam.z = 0;
+          applyAct(i, true);
+          hud.score.classList.remove('open');
+          markInteracted();
+        }
+
         /* ------------------------------------------------------- entrées */
         function markInteracted() {
           if (interacted) return;
@@ -1725,8 +2286,10 @@
           if (pendingAsk) {
             // Frotter l'écran vaut caresse — et remplace les capteurs sur un
             // ordinateur, pour que la demande reste franchissable partout.
-            var d = Math.hypot(pt.x - lastPointer.x, pt.y - lastPointer.y);
-            if (d > 1) feedAsk(Math.min(0.05, d * 0.0018));
+            if (pendingAsk.type === 'caress' || pendingAsk.type === 'shake' || pendingAsk.type === 'tilt') {
+              var d = Math.hypot(pt.x - lastPointer.x, pt.y - lastPointer.y);
+              if (d > 1) feedAsk(Math.min(0.05, d * 0.0018));
+            }
           }
           lastPointer = pt;
           if (held) held = pt;
@@ -1748,6 +2311,25 @@
           keys[e.code] = false;
         });
 
+        hud.btnScore.addEventListener('click', function () {
+          Sound.unlock();
+          markInteracted();
+          if (hud.score.classList.contains('open')) {
+            hud.score.classList.remove('open');
+            return;
+          }
+          buildScoreMenu();
+          hud.score.classList.add('open');
+        });
+
+        hud.btnCam.addEventListener('click', function () {
+          Sound.unlock();
+          markInteracted();
+          camMode = (camMode + 1) % 3;
+          hud.btnCam.textContent = '◉ ' + CAM_NAMES[camMode];
+          Sound.note('pluck', 7, 0.07);
+        });
+
         window.addEventListener('resize', resize);
         window.addEventListener('orientationchange', function () {
           setTimeout(resize, 120);
@@ -1763,6 +2345,7 @@
           if (dt > 0) fpsSamples.push(1 / dt);
           if (fpsSamples.length > 120) fpsSamples.shift();
           update(dt);
+          updateWeather(dt);
           updateEvents(dt);
           updateCreatures();
           render(dt);
@@ -1773,8 +2356,14 @@
         buildDiscs();
         buildNoise();
         hero.x = 40;
+        hero.prevX = 40;
         cam.x = 40;
         paintPhrase();
+        restyleInk();
+        applyAct(actIndexAt(hero.x), false);
+        setTimeout(function () {
+          announce(act.word);
+        }, 1200);
         window.__grain = {
           fps: function () {
             var s = 0;
@@ -1788,7 +2377,7 @@
               focusZ: Math.round(focusZ),
               steps: steps,
               fragments: fragments.length,
-              region: region,
+              acte: act.word,
               talk: talkOpen ? talk.script.who + ':' + talk.node : null,
               ask: pendingAsk ? pendingAsk.type + ':' + pendingAsk.progress.toFixed(2) : null,
               near: nearCreature ? Math.round(Math.abs(nearCreature.x - hero.x)) : -1,
@@ -1818,6 +2407,15 @@
             var b = hud.choices.getElementsByTagName('button');
             if (b[i || 0]) b[i || 0].click();
             return b.length;
+          },
+          jump: function (i) {
+            jumpToAct(i);
+            return act.word;
+          },
+          cam: function (m) {
+            camMode = m % 3;
+            hud.btnCam.textContent = '◉ ' + CAM_NAMES[camMode];
+            return CAM_NAMES[camMode];
           },
           rub: function (n) {
             for (var i = 0; i < (n || 40); i++) feedAsk(0.05);
